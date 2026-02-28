@@ -32,7 +32,7 @@
     permissoesUsuario.nivelAcesso         = dadosPermissoes.nivelAcesso         || 'visitante';
     permissoesUsuario.podeCriarProjeto    = dadosPermissoes.podeCriarProjeto    || false;
     permissoesUsuario.podeCriarEtapa      = dadosPermissoes.podeCriarEtapa      || false;
-    permissoesUsuario.ehAdmin             = dadosPermissoes.ehAdmin             || false;
+    permissoesUsuario.ehAdmin             = dadosPermissoes.ehAdmin === true     || dadosPermissoes.nivelAcesso === 'admin';
     permissoesUsuario.setoresPermitidos   = dadosPermissoes.setoresPermitidos   || [];
     permissoesUsuario.projetosPermitidos  = dadosPermissoes.projetosPermitidos  || [];
     permissoesUsuario.filtrarPorResponsavel = dadosPermissoes.filtrarPorResponsavel || false;
