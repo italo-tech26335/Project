@@ -24,12 +24,13 @@ const NOME_ABA_REUNIOES = 'Reuniões';
 const COLUNAS_PERMISSOES = {
   ID: 0,
   EMAIL_USUARIO: 1,
-  NIVEL_ACESSO: 2,        // 'admin', 'gestor', 'colaborador'
-  SETORES_PERMITIDOS: 3,  // IDs separados por v?rgula (vazio = todos para admin)
-  PROJETOS_PERMITIDOS: 4, // IDs separados por v?rgula (vazio = herda do setor)
-  PODE_CRIAR_PROJETO: 5,  // true/false
-  PODE_CRIAR_ETAPA: 6,    // true/false
-  ATIVO: 7                // true/false
+  NIVEL_ACESSO: 2,             // 'admin', 'gestor', 'colaborador'
+  SETORES_PERMITIDOS: 3,       // IDs separados por v?rgula (vazio = todos para admin)
+  PROJETOS_PERMITIDOS: 4,      // IDs separados por v?rgula (vazio = herda do setor)
+  PODE_CRIAR_PROJETO: 5,       // true/false
+  PODE_CRIAR_ETAPA: 6,         // true/false
+  ATIVO: 7,                    // true/false
+  FILTRAR_POR_RESPONSAVEL: 8   // true/false — exibe apenas projetos onde o usuário é responsável
 };
 
 const COLUNAS_PROJETOS = {
@@ -49,7 +50,9 @@ const COLUNAS_PROJETOS = {
   RESPONSAVEIS_IDS: 13,
   VALOR_PRIORIDADE: 14,
   DATA_INICIO: 15,
-  DATA_FIM: 16
+  DATA_FIM: 16,
+  DATA_CRIACAO: 17,
+  DATA_ULTIMA_MODIFICACAO: 18
 };
 
 const COLUNAS_RESPONSAVEIS = {
@@ -167,6 +170,11 @@ const EMAILS_DESTINATARIOS_PADRAO = [
 function doGet(e) {
   try {
     const pagina = (e?.parameter?.pagina || 'reunioes').toString().trim().toLowerCase();
+
+    // Modo admin: ativado via ?modo=admin, mas só válido para usuários admin na planilha
+    const solicitouAdmin = (e?.parameter?.modo === 'admin');
+    const modoAdmin = solicitouAdmin && ehAdministrador();
+
     let nomeArquivoHtml, titulo;
 
     // ==================== PÁGINA DE PROJETOS ====================
@@ -179,9 +187,9 @@ function doGet(e) {
       nomeArquivoHtml = 'PaginaProjetoDetalhe🟡';
       titulo = 'Smart Meeting - Detalhes do Projeto';
 
-      // REMOVIDO: Não passa mais projetoIdUrl
-      return HtmlService.createTemplateFromFile(nomeArquivoHtml)
-        .evaluate()
+      const tmpl = HtmlService.createTemplateFromFile(nomeArquivoHtml);
+      tmpl.modoAdmin = modoAdmin;
+      return tmpl.evaluate()
         .setTitle(titulo)
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -197,8 +205,9 @@ function doGet(e) {
       titulo = 'Smart Meeting - Reuniões';
     }
 
-    return HtmlService.createTemplateFromFile(nomeArquivoHtml)
-      .evaluate()
+    const template = HtmlService.createTemplateFromFile(nomeArquivoHtml);
+    template.modoAdmin = modoAdmin;
+    return template.evaluate()
       .setTitle(titulo)
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -217,6 +226,24 @@ function abrirPaginaRelatorios() {
 
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+/**
+ * Grava timestamps de criação e/ou modificação em uma linha da planilha.
+ * @param {Sheet} aba - Objeto Sheet do Google Sheets
+ * @param {number} linhaIndex - Índice da linha (base 1)
+ * @param {number} colCriacao - Índice da coluna DATA_CRIACAO (base 0); -1 para ignorar
+ * @param {number} colModificacao - Índice da coluna DATA_ULTIMA_MODIFICACAO (base 0); -1 para ignorar
+ * @param {boolean} ehNovo - Se true, grava também a data de criação
+ */
+function gravarTimestamp(aba, linhaIndex, colCriacao, colModificacao, ehNovo) {
+  const agora = new Date();
+  if (ehNovo && colCriacao >= 0) {
+    aba.getRange(linhaIndex, colCriacao + 1).setValue(agora);
+  }
+  if (colModificacao >= 0) {
+    aba.getRange(linhaIndex, colModificacao + 1).setValue(agora);
+  }
 }
 
 function obterUrlWebApp() {
@@ -472,6 +499,7 @@ function obterPermissoesUsuarioAtual() {
           projetosPermitidos: parseArrayString(dados[i][COLUNAS_PERMISSOES.PROJETOS_PERMITIDOS]),
           podeCriarProjeto: dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_PROJETO] === true || dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_PROJETO] === 'true',
           podeCriarEtapa: dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_ETAPA] === true || dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_ETAPA] === 'true',
+          filtrarPorResponsavel: dados[i][COLUNAS_PERMISSOES.FILTRAR_POR_RESPONSAVEL] === true || dados[i][COLUNAS_PERMISSOES.FILTRAR_POR_RESPONSAVEL] === 'true',
           ativo: true
         };
       }

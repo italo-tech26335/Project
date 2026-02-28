@@ -135,20 +135,7 @@
       prioridadesPorResponsavel: new Map() // Cache de prioridades por responsável
     };
 
-    let permissoesUsuario = {
-      nivelAcesso: 'visitante',
-      podeCriarProjeto: false,
-      podeCriarEtapa: false,
-      ehAdmin: false,
-      setoresPermitidos: [],
-      projetosPermitidos: []
-    };
-
-    const NIVEIS_ACESSO = {
-      ADMIN: 'admin',
-      GESTOR: 'gestor',
-      COLABORADOR: 'colaborador'
-    };
+    // permissoesUsuario e NIVEIS_ACESSO definidos em Compartilhado-Utilidades🔧.html
     
     let estado = {
       zoom: 1, offsetX: 0, offsetY: 0, arrastandoPan: false, inicioX: 0, inicioY: 0,

@@ -92,9 +92,20 @@
       if (estado.ocultarTodosProjetos) return false;
       const p = dadosDiagrama.projetos.find(x => x.id === projetoId);
       if (!p) return false;
-      if (p.setor && estado.setoresColapsados.has(p.setor)) {
-        return false;
+      if (p.setor && estado.setoresColapsados.has(p.setor)) return false;
+
+      // Ocultar projeto quando há filtros ativos e nenhuma de suas etapas passa
+      const filtroAtivo = estado.filtroStatus.size < 4 ||
+        (dadosDiagrama.responsaveis.length > 0 &&
+          !dadosDiagrama.responsaveis.every(r => estado.filtroResponsaveis.has(r.id)));
+
+      if (filtroAtivo) {
+        const etapasDoProjeto = dadosDiagrama.etapas.filter(e => e.projetoId === projetoId);
+        if (etapasDoProjeto.length > 0 && !etapasDoProjeto.some(e => etapaPassaNosFiltros(e))) {
+          return false;
+        }
       }
+
       return true;
     }
 
@@ -122,19 +133,15 @@ function carregarDados() {
           prioridadesPorResponsavel: new Map()
         };
         
-        // NOVO: Armazena permissões do usuário
+        // Armazena permissões do usuário
         if (r.permissoes) {
-          permissoesUsuario = {
-            nivelAcesso: r.permissoes.nivelAcesso || 'visitante',
-            podeCriarProjeto: r.permissoes.podeCriarProjeto || false,
-            podeCriarEtapa: r.permissoes.podeCriarEtapa || false,
-            ehAdmin: r.permissoes.ehAdmin || false,
-            setoresPermitidos: r.permissoes.setoresPermitidos || [],
-            projetosPermitidos: r.permissoes.projetosPermitidos || [],
-            email: r.permissoes.email || ''
-          };
-          
-          // Permissões carregadas.
+          inicializarPermissoes(r.permissoes);
+
+          // Badge visível quando filtro por responsável está ativo
+          const badgeFiltroResp = document.getElementById('badgeFiltroResponsavel');
+          if (badgeFiltroResp) {
+            badgeFiltroResp.style.display = permissoesUsuario.filtrarPorResponsavel ? 'flex' : 'none';
+          }
         }
         
         podeEditarBackend = r.podeEditar !== false;
@@ -156,7 +163,7 @@ function carregarDados() {
       }
     })
     .withFailureHandler(e => { esconderLoader(); mostrarToast(e.message, 'erro'); })
-    .obterDadosDiagrama();
+    .obterDadosDiagrama(typeof MODO_ADMIN_URL !== 'undefined' ? MODO_ADMIN_URL : false);
 }
 
 /**

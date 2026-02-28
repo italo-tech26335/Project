@@ -9,7 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <?!= include('TemaPadrao-CSS'); ?>
-  
+  <script>const MODO_ADMIN_URL = <?= modoAdmin ?>;</script>
+
   <!-- CSS SEPARADO EM MÓDULOS -->
   <?!= include('Paginaprojetos-css-base🎈'); ?>
   <?!= include('Paginaprojetos-css-cards🎈'); ?>
@@ -29,6 +30,10 @@
           <i class="fas fa-clock"></i>
           <span id="totalPendentesHeader">0</span>
           <span>pendentes</span>
+        </div>
+        <div id="badgeFiltroResponsavel" style="display:none;align-items:center;gap:6px;background:rgba(74,111,165,0.15);border:1px solid rgba(74,111,165,0.4);border-radius:20px;padding:4px 12px;font-size:0.75rem;color:#4a6fa5;">
+          <i class="fas fa-user-tag"></i>
+          <span>Exibindo apenas seus projetos</span>
         </div>
         <button class="btn-bloqueio editavel" id="btnBloqueioGlobal" onclick="alternarModoBloqueioGlobal()">
           <i class="fas fa-lock-open"></i>
@@ -760,7 +765,8 @@
   </div>
 
   <!-- JS SEPARADO EM MÓDULOS -->
-  <!-- A ordem de importação é crítica: Config (estado) -> Render (visual) -> Interação (eventos) -> CRUD (modais) -->
+  <!-- A ordem de importação é crítica: Utilidades (base) -> Config (estado) -> Render (visual) -> Interação (eventos) -> CRUD (modais) -->
+  <?!= include('Compartilhado-Utilidades🔧'); ?>
   <?!= include('Paginaprojetos-js-config🎈'); ?>
   <?!= include('Paginaprojetos-js-render🎈'); ?>
   <?!= include('Paginaprojetos-js-interacao🎈'); ?>

@@ -1,22 +1,25 @@
-function obterDadosDiagrama() {
+function obterDadosDiagrama(modoAdminParam) {
   try {
     Logger.log('Iniciando obterDadosDiagrama');
-    
+
     // Obtém permissões do usuário atual
     const permissoesUsuario = obterPermissoesUsuarioAtual();
     Logger.log('Permissões do usuário: ' + JSON.stringify(permissoesUsuario));
-    
+
+    // Modo admin: só ativo se o usuário realmente é admin no sistema
+    const modoAdmin = modoAdminParam === true && ehAdministrador(permissoesUsuario);
+
     // Carrega todos os dados brutos
     const todosProjetos = obterTodosProjetos();
     const responsaveis = obterTodosResponsaveis();
     const todasEtapas = obterTodasEtapas();
     const dependencias = obterTodasDependencias();
     const setoresResponsaveis = obterSetoresComResponsaveis();
-    
+
     // Filtra projetos baseado nas permissões
     let projetosFiltrados;
-    if (permissoesUsuario.nivelAcesso === NIVEIS_ACESSO.ADMIN) {
-      // Admin vê tudo
+    if (modoAdmin || permissoesUsuario.nivelAcesso === NIVEIS_ACESSO.ADMIN) {
+      // Admin (ou modo admin URL) vê tudo sem restrições
       projetosFiltrados = todosProjetos;
     } else if (permissoesUsuario.nivelAcesso === 'visitante' || permissoesUsuario.nivelAcesso === 'inativo') {
       // Visitante/Inativo não vê nada
@@ -28,6 +31,22 @@ function obterDadosDiagrama() {
       });
     }
     
+    // Filtro por responsável: exibe só projetos onde o usuário tem etapas atribuídas
+    if (permissoesUsuario.filtrarPorResponsavel && permissoesUsuario.nivelAcesso !== NIVEIS_ACESSO.ADMIN) {
+      const emailUsuarioLower = (permissoesUsuario.email || '').toLowerCase();
+      const respUsuario = responsaveis.find(r =>
+        r.email && r.email.toLowerCase() === emailUsuarioLower
+      );
+      if (respUsuario) {
+        const projetosComEtapas = new Set(
+          todasEtapas
+            .filter(e => (e.responsaveisIds || []).includes(respUsuario.id) || e.responsavelId === respUsuario.id)
+            .map(e => e.projetoId)
+        );
+        projetosFiltrados = projetosFiltrados.filter(p => projetosComEtapas.has(p.id));
+      }
+    }
+
     // Obtém IDs dos projetos visíveis
     const projetosVisiveis = new Set(projetosFiltrados.map(p => p.id));
     
@@ -63,7 +82,9 @@ function obterDadosDiagrama() {
         podeCriarEtapa: permissoesUsuario.podeCriarEtapa,
         ehAdmin: ehAdministrador(permissoesUsuario),
         setoresPermitidos: permissoesUsuario.setoresPermitidos,
-        projetosPermitidos: permissoesUsuario.projetosPermitidos
+        projetosPermitidos: permissoesUsuario.projetosPermitidos,
+        filtrarPorResponsavel: permissoesUsuario.filtrarPorResponsavel || false,
+        email: permissoesUsuario.email || ''
       }
     };
   } catch (erro) {
@@ -168,6 +189,8 @@ function adicionarProjeto(dados) {
       responsaveisString
     ];
     aba.appendRow(novaLinha);
+    const linhaNova = aba.getLastRow();
+    gravarTimestamp(aba, linhaNova, COLUNAS_PROJETOS.DATA_CRIACAO, COLUNAS_PROJETOS.DATA_ULTIMA_MODIFICACAO, true);
     Logger.log('Projeto criado com ID: ' + id);
     return { sucesso: true, id: id, mensagem: 'Projeto criado!' };
   } catch (e) {
@@ -211,6 +234,7 @@ function atualizarProjeto(id, campos) {
           aba.getRange(linha, COLUNAS_PROJETOS.RESPONSAVEIS_IDS + 1).setValue(respString);
         }
 
+        gravarTimestamp(aba, linha, -1, COLUNAS_PROJETOS.DATA_ULTIMA_MODIFICACAO, false);
         return { sucesso: true, mensagem: 'Projeto atualizado!' };
       }
     }

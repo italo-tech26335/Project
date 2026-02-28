@@ -1668,6 +1668,16 @@ function recolherTodosColaboradores() {
 
     function etapaPassaNosFiltros(etapa) {
        if (!estado.filtroStatus.has(etapa.status)) return false;
+
+       // Verifica filtro de responsável (só aplica quando não estão todos selecionados)
+       const todosRespSelecionados = dadosDiagrama.responsaveis.length === 0 ||
+         dadosDiagrama.responsaveis.every(r => estado.filtroResponsaveis.has(r.id));
+
+       if (!todosRespSelecionados) {
+         const idsResp = etapa.responsaveisIds || (etapa.responsavelId ? [etapa.responsavelId] : []);
+         if (!idsResp.some(id => estado.filtroResponsaveis.has(id))) return false;
+       }
+
        return true;
     }
 
