@@ -45,6 +45,10 @@
         <button class="btn-cabecalho btn-toggle-painel" onclick="togglePainel()">
           <i class="fas fa-chart-pie"></i>
         </button>
+        <button class="btn-cabecalho" id="btnPermissoesCabecalho" onclick="abrirModalPermissoes()" style="display:none;" title="Gerenciar Permissões de Usuários">
+          <i class="fas fa-user-shield"></i>
+          <span>Permissões</span>
+        </button>
         <button class="btn-cabecalho" onclick="autoOrganizar()" title="Organizar Automaticamente por Setor">
           <i class="fas fa-sitemap"></i>
           <span>Organizar</span>
@@ -730,19 +734,28 @@
             <span>Pode criar novos projetos</span>
           </label>
         </div>
-        
+
         <div class="campo-form">
           <label class="checkbox-inline">
             <input type="checkbox" id="permissaoPodeCriarEtapa" checked>
             <span>Pode criar novas etapas</span>
           </label>
         </div>
-        
+
         <div class="campo-form">
-          <label class="checkbox-inline">
-            <input type="checkbox" id="permissaoAtivo" checked>
-            <span>Usuário Ativo</span>
-          </label>
+          <label for="permissaoFiltrarResponsavel">Visibilidade dos projetos</label>
+          <select id="permissaoFiltrarResponsavel">
+            <option value="false">Todos os projetos permitidos</option>
+            <option value="true">Apenas projetos onde é responsável</option>
+          </select>
+        </div>
+
+        <div class="campo-form">
+          <label for="permissaoAtivo">Status do usuário</label>
+          <select id="permissaoAtivo">
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
         </div>
       </div>
       <div class="modal-footer">

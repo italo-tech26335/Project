@@ -180,10 +180,14 @@ function atualizarUIBaseadoEmPermissoes() {
     }
   }
   
-  // Botão de gerenciar permissões (só admin)
+  // Botão de gerenciar permissões (só admin) — menu flutuante e cabeçalho
   const btnGerenciarPermissoes = document.getElementById('btnGerenciarPermissoes');
   if (btnGerenciarPermissoes) {
     btnGerenciarPermissoes.style.display = permissoesUsuario.ehAdmin ? '' : 'none';
+  }
+  const btnPermissoesCabecalho = document.getElementById('btnPermissoesCabecalho');
+  if (btnPermissoesCabecalho) {
+    btnPermissoesCabecalho.style.display = permissoesUsuario.ehAdmin ? '' : 'none';
   }
   
   // Indicador de nível de acesso no header

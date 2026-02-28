@@ -2024,7 +2024,8 @@ function abrirFormNovaPermissao() {
   document.getElementById('permissaoNivel').value = 'colaborador';
   document.getElementById('permissaoPodeCriarProjeto').checked = false;
   document.getElementById('permissaoPodeCriarEtapa').checked = true;
-  document.getElementById('permissaoAtivo').checked = true;
+  document.getElementById('permissaoFiltrarResponsavel').value = 'false';
+  document.getElementById('permissaoAtivo').value = 'true';
   
   document.getElementById('tituloModalPermissao').textContent = 'Nova Permissão';
   document.getElementById('btnRemoverPermissao').classList.add('oculto');
@@ -2050,7 +2051,8 @@ function editarPermissao(permissaoId) {
   document.getElementById('permissaoNivel').value = perm.nivelAcesso || 'colaborador';
   document.getElementById('permissaoPodeCriarProjeto').checked = perm.podeCriarProjeto;
   document.getElementById('permissaoPodeCriarEtapa').checked = perm.podeCriarEtapa;
-  document.getElementById('permissaoAtivo').checked = perm.ativo;
+  document.getElementById('permissaoFiltrarResponsavel').value = perm.filtrarPorResponsavel ? 'true' : 'false';
+  document.getElementById('permissaoAtivo').value = perm.ativo ? 'true' : 'false';
   
   document.getElementById('tituloModalPermissao').textContent = 'Editar Permissão';
   document.getElementById('btnRemoverPermissao').classList.remove('oculto');
@@ -2175,7 +2177,8 @@ function salvarPermissaoModal() {
     projetosPermitidos: obterProjetosSelecionados(),
     podeCriarProjeto: document.getElementById('permissaoPodeCriarProjeto').checked,
     podeCriarEtapa: document.getElementById('permissaoPodeCriarEtapa').checked,
-    ativo: document.getElementById('permissaoAtivo').checked
+    filtrarPorResponsavel: document.getElementById('permissaoFiltrarResponsavel').value === 'true',
+    ativo: document.getElementById('permissaoAtivo').value === 'true'
   };
   
   mostrarLoader();

@@ -841,7 +841,8 @@ function listarTodasPermissoes() {
           projetosPermitidos: parseArrayString(dados[i][COLUNAS_PERMISSOES.PROJETOS_PERMITIDOS]),
           podeCriarProjeto: dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_PROJETO] === true || dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_PROJETO] === 'true',
           podeCriarEtapa: dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_ETAPA] === true || dados[i][COLUNAS_PERMISSOES.PODE_CRIAR_ETAPA] === 'true',
-          ativo: dados[i][COLUNAS_PERMISSOES.ATIVO] !== false && dados[i][COLUNAS_PERMISSOES.ATIVO] !== 'false'
+          ativo: dados[i][COLUNAS_PERMISSOES.ATIVO] !== false && dados[i][COLUNAS_PERMISSOES.ATIVO] !== 'false',
+          filtrarPorResponsavel: dados[i][COLUNAS_PERMISSOES.FILTRAR_POR_RESPONSAVEL] === true || dados[i][COLUNAS_PERMISSOES.FILTRAR_POR_RESPONSAVEL] === 'true'
         });
       }
     }
@@ -882,6 +883,7 @@ function salvarPermissaoUsuario(dadosPermissao) {
         linhaAtualizada[COLUNAS_PERMISSOES.PODE_CRIAR_PROJETO] = dadosPermissao.podeCriarProjeto === true;
         linhaAtualizada[COLUNAS_PERMISSOES.PODE_CRIAR_ETAPA] = dadosPermissao.podeCriarEtapa === true;
         linhaAtualizada[COLUNAS_PERMISSOES.ATIVO] = dadosPermissao.ativo !== false;
+        linhaAtualizada[COLUNAS_PERMISSOES.FILTRAR_POR_RESPONSAVEL] = dadosPermissao.filtrarPorResponsavel === true;
 
         aba.getRange(linha, 1, 1, linhaAtualizada.length).setValues([linhaAtualizada]);
         limparCacheAba(NOME_ABA_PERMISSOES);
@@ -900,9 +902,10 @@ function salvarPermissaoUsuario(dadosPermissao) {
       Array.isArray(dadosPermissao.projetosPermitidos) ? dadosPermissao.projetosPermitidos.join(',') : '',
       dadosPermissao.podeCriarProjeto === true,
       dadosPermissao.podeCriarEtapa === true,
-      dadosPermissao.ativo !== false
+      dadosPermissao.ativo !== false,
+      dadosPermissao.filtrarPorResponsavel === true
     ];
-    
+
     aba.appendRow(novaLinha);
     limparCacheAba(NOME_ABA_PERMISSOES);
     return { sucesso: true, mensagem: 'Permiss?o criada!', id: id };
