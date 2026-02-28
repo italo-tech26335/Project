@@ -177,13 +177,8 @@ function doGet(e) {
 
     let nomeArquivoHtml, titulo;
 
-    // ==================== PÁGINA DE PROJETOS ====================
-    if (pagina === 'projetos') {
-      nomeArquivoHtml = 'Paginaprojetos🎈';
-      titulo = 'Smart Meeting - Gestão de Projetos';
-    }
     // ==================== PÁGINA DE DETALHE DO PROJETO ====================
-    else if (pagina === 'projeto') {
+    if (pagina === 'projeto') {
       nomeArquivoHtml = 'PaginaProjetoDetalhe🟡';
       titulo = 'Smart Meeting - Detalhes do Projeto';
 

@@ -290,8 +290,9 @@ function carregarDadosEditorProjeto() {
       }
     });
 
-    // ── Obter tema do usuário ──
+    // ── Obter tema e permissões do usuário ──
     var temaUsuario = obterPreferenciaTema();
+    const permissoes = obterPermissoesUsuarioAtual();
     
     let prioridadesProjetos = [];
     try {
@@ -316,7 +317,8 @@ function carregarDadosEditorProjeto() {
       prioridadesProjetos: prioridadesProjetos,
       pessoasParaQuem: pessoasParaQuem,
       configCalculoPrioridade: configCalculoPrioridade,
-      tema: temaUsuario   // ← NOVO
+      tema: temaUsuario,
+      permissoes: permissoes
     };
     
   } catch (e) {
