@@ -126,6 +126,9 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     // Verificar sessão salva no localStorage (persiste entre refreshes)
+    // Ao chegar na página de login, limpa o contador de redirecionamentos
+    sessionStorage.removeItem('_sm_redir');
+
     if (!TOKEN_RESET) {
       var tokenSalvo = localStorage.getItem('sm_token');
       if (tokenSalvo) {

@@ -1390,12 +1390,16 @@ document.addEventListener('DOMContentLoaded', () => {
   var elNome = document.getElementById('headerUsuarioNome');
   if (elNome && typeof USUARIO_NOME !== 'undefined') elNome.textContent = USUARIO_NOME;
 
-  verificarSessaoCliente(function() {
+  // Sessão já verificada pelo servidor (doGet). Inicializa diretamente para
+  // evitar loop de redirecionamento causado por falha transitória no google.script.run.
+  if (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN) {
     verificarConfig();
     carregarCatalogo();
     setupDropzone();
     log('INFO', '🚀 Smart Meeting inicializado');
-  });
+  } else {
+    _redirecionarLogin();
+  }
 });
 
 // ═══════════════════════════════════════

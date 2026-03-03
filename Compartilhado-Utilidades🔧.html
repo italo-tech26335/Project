@@ -31,7 +31,11 @@
           _redirecionarLogin();
         }
       })
-      .withFailureHandler(function() { _redirecionarLogin(); })
+      .withFailureHandler(function() {
+        // Falha transitória (rede/quota) — executa callback sem redirecionar
+        // para evitar loop: a sessão foi verificada pelo servidor ao servir a página.
+        if (typeof callbackSucesso === 'function') callbackSucesso(null);
+      })
       .verificarSessao(SESSAO_TOKEN);
   }
 
@@ -56,7 +60,16 @@
 
   // ── Helpers internos ──────────────────────────────────────────────────────
   function _redirecionarLogin() {
-    // Deriva a URL base da página atual (sem parâmetros) — sem chamar o servidor
+    // Guard contra loop infinito: conta tentativas na mesma aba via sessionStorage
+    var tentativas = parseInt(sessionStorage.getItem('_sm_redir') || '0');
+    if (tentativas >= 2) {
+      // Loop detectado — limpa token e exibe tela de login sem redirecionar recursivamente
+      sessionStorage.removeItem('_sm_redir');
+      localStorage.removeItem('sm_token');
+      localStorage.removeItem('sm_usuario');
+    } else {
+      sessionStorage.setItem('_sm_redir', tentativas + 1);
+    }
     var baseUrl = window.location.href.split('?')[0];
     window.location.href = baseUrl + '?pagina=login';
   }
