@@ -213,6 +213,7 @@ function doGet(e) {
     tmpl.sessaoToken   = token;
     tmpl.usuarioNome   = sessao.nome;
     tmpl.usuarioPerfil = sessao.perfil;
+    tmpl.modoAdmin     = (sessao.perfil === 'admin');
 
     return tmpl.evaluate()
       .setTitle(titulo)
@@ -367,7 +368,9 @@ function inicializarCabecalhoAba(aba, nomeAba) {
     [NOME_ABA_DEPENDENCIAS]:  ['ID', 'EtapaOrigemId', 'OrigemAnchor', 'EtapaDestinoId', 'DestinoAnchor'],
     [NOME_ABA_REUNIOES]:      ['ID', 'Titulo', 'DataInicio', 'DataFim', 'DuracaoMin', 'Status', 'Participantes', 'Transcricao', 'Ata', 'SugestoesIA', 'LinkAudio', 'LinkAta', 'EmailsEnviados', 'ProjetosImpactados', 'EtapasCriadasOuAlteradas'],
     [NOME_ABA_SETORES]:       ['ID', 'Nome', 'Descricao', 'Cor'],
-    [NOME_ABA_PRIORIDADES]:   ['ID', 'ResponsavelId', 'TipoItem', 'ItemId', 'OrdemPrioridade', 'ProjetoReferencia']
+    [NOME_ABA_PRIORIDADES]:   ['ID', 'ResponsavelId', 'TipoItem', 'ItemId', 'OrdemPrioridade', 'ProjetoReferencia'],
+    [NOME_ABA_USUARIOS]:      ['ID', 'Email', 'SenhaHash', 'Salt', 'Nome', 'Perfil', 'Ativo', 'CriadoEm', 'UltimoLogin', 'TentativasLogin', 'BloqueadoAte'],
+    [NOME_ABA_LOGS]:          ['Timestamp', 'Evento', 'Usuario', 'IP', 'Detalhes', 'Resultado']
   };
 
   if (cabecalhos[nomeAba]) {

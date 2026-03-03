@@ -530,7 +530,35 @@ function obterLogs(token, filtros) {
 }
 
 function setupAdminInicial() {
+  repararHeaderUsuarios();
   inicializarAdmin('napa13@christus.com.br', 'A@a12345678', 'Italo');
+}
+
+/**
+ * Verifica se a aba Usuarios possui cabeçalho na linha 1.
+ * Se não possuir (primeira célula não é 'ID'), insere o cabeçalho.
+ * EXECUTAR no editor caso o admin já tenha sido criado sem header.
+ */
+function repararHeaderUsuarios() {
+  var aba = obterAba(NOME_ABA_USUARIOS);
+  var dados = aba.getDataRange().getValues();
+
+  // Se a primeira linha já é o cabeçalho correto, não faz nada
+  if (dados.length > 0 && dados[0][0] === 'ID') {
+    Logger.log('Header da aba Usuarios já está correto.');
+    return;
+  }
+
+  // Insere uma linha no topo com o cabeçalho
+  aba.insertRowBefore(1);
+  aba.getRange(1, 1, 1, 11).setValues([[
+    'ID', 'Email', 'SenhaHash', 'Salt', 'Nome',
+    'Perfil', 'Ativo', 'CriadoEm', 'UltimoLogin',
+    'TentativasLogin', 'BloqueadoAte'
+  ]]);
+  aba.getRange(1, 1, 1, 11).setFontWeight('bold');
+  limparCacheAba(NOME_ABA_USUARIOS);
+  Logger.log('✅ Header da aba Usuarios inserido com sucesso.');
 }
 
 
