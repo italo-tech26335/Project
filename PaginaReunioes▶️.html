@@ -2433,18 +2433,13 @@ function limparForm() {
 //  NAVEGAÇÃO
 // ═══════════════════════════════════════
 (function() {
-  function configurarLinks(url) {
-    const tk = (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN) ? '&token=' + encodeURIComponent(SESSAO_TOKEN) : '';
-    document.querySelectorAll('a[data-pagina]').forEach(a => {
-      const pg = a.getAttribute('data-pagina');
-      const full = url + '?pagina=' + pg + tk;
-      a.href = full;
-      a.addEventListener('click', e => { e.preventDefault(); window.location.href = full; });
-    });
-  }
-  if (typeof google !== 'undefined' && google.script) {
-    google.script.run.withSuccessHandler(configurarLinks).withFailureHandler(()=>{}).obterUrlBaseWebApp();
-  }
+  var baseUrl = window.location.href.split('?')[0];
+  var tk = (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN)
+    ? '&token=' + encodeURIComponent(SESSAO_TOKEN) : '';
+  document.querySelectorAll('a[data-pagina]').forEach(function(a) {
+    var pg = a.getAttribute('data-pagina');
+    a.href = baseUrl + '?pagina=' + pg + tk;
+  });
 })();
 </script>
 <?!= include('Compartilhado-Utilidades🔧'); ?>

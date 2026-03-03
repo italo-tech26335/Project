@@ -37,19 +37,28 @@
 
   // ── Logout ────────────────────────────────────────────────────────────────
   function fazerLogoutCliente() {
-    if (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN) {
-      google.script.run.fazerLogout(SESSAO_TOKEN);
-    }
+    // Limpa armazenamento local PRIMEIRO (evita auto-login loop)
+    localStorage.removeItem('sm_token');
+    localStorage.removeItem('sm_usuario');
     sessionStorage.removeItem('sm_token');
     sessionStorage.removeItem('sm_usuario');
-    _redirecionarLogin();
+
+    // Invalida sessão no servidor e redireciona
+    if (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN) {
+      google.script.run
+        .withSuccessHandler(function() { _redirecionarLogin(); })
+        .withFailureHandler(function() { _redirecionarLogin(); })
+        .fazerLogout(SESSAO_TOKEN);
+    } else {
+      _redirecionarLogin();
+    }
   }
 
   // ── Helpers internos ──────────────────────────────────────────────────────
   function _redirecionarLogin() {
-    google.script.run.withSuccessHandler(function(url) {
-      window.location.href = url + '?pagina=login';
-    }).obterUrlWebApp();
+    // Deriva a URL base da página atual (sem parâmetros) — sem chamar o servidor
+    var baseUrl = window.location.href.split('?')[0];
+    window.location.href = baseUrl + '?pagina=login';
   }
 
   function podeEditar() {

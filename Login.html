@@ -125,6 +125,33 @@
   var TOKEN_RESET = '<?= tokenReset ?>';
 
   document.addEventListener('DOMContentLoaded', function() {
+    // Verificar sessão salva no localStorage (persiste entre refreshes)
+    if (!TOKEN_RESET) {
+      var tokenSalvo = localStorage.getItem('sm_token');
+      if (tokenSalvo) {
+        mostrarLoading('Verificando sessão...');
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (r && r.valida) {
+              mostrarLoading('Abrindo o sistema...');
+              var baseUrl = window.location.href.split('?')[0];
+              window.location.href = baseUrl + '?pagina=reunioes&token=' + tokenSalvo;
+            } else {
+              localStorage.removeItem('sm_token');
+              localStorage.removeItem('sm_usuario');
+              esconderLoading();
+              mostrarPainel('painelLogin');
+            }
+          })
+          .withFailureHandler(function() {
+            esconderLoading();
+            mostrarPainel('painelLogin');
+          })
+          .verificarSessao(tokenSalvo);
+        return;
+      }
+    }
+
     if (TOKEN_RESET) {
       mostrarPainel('painelNovaSenha');
     } else {
@@ -215,12 +242,13 @@
     google.script.run
       .withSuccessHandler(function(r) {
         if (r.sucesso) {
+          localStorage.setItem('sm_token', r.token);
+          localStorage.setItem('sm_usuario', JSON.stringify(r.usuario));
           sessionStorage.setItem('sm_token', r.token);
           sessionStorage.setItem('sm_usuario', JSON.stringify(r.usuario));
           mostrarLoading('Abrindo o sistema...');
-          google.script.run.withSuccessHandler(function(url) {
-            window.location.href = url + '?pagina=reunioes&token=' + r.token;
-          }).obterUrlWebApp();
+          var baseUrl = window.location.href.split('?')[0];
+          window.location.href = baseUrl + '?pagina=reunioes&token=' + r.token;
         } else {
           esconderLoading();
           setCarregando('btnEntrar', false);
