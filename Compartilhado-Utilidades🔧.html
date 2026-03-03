@@ -70,8 +70,16 @@
     } else {
       sessionStorage.setItem('_sm_redir', tentativas + 1);
     }
-    var baseUrl = window.location.href.split('?')[0];
-    window.location.href = baseUrl + '?pagina=login';
+    // Usa BASE_URL injetado pelo servidor (URL canônica do GAS).
+    // Navega o frame superior (_top) para evitar ficar preso no iframe interno.
+    var url = (typeof BASE_URL !== 'undefined' && BASE_URL)
+      ? BASE_URL
+      : window.location.href.split('?')[0];
+    try {
+      window.top.location.href = url + '?pagina=login';
+    } catch (e) {
+      window.location.href = url + '?pagina=login';
+    }
   }
 
   function podeEditar() {

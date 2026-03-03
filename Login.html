@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Meeting - Login</title>
+  <base target="_top">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -123,6 +124,7 @@
 
 <script>
   var TOKEN_RESET = '<?= tokenReset ?>';
+  var BASE_URL    = '<?= baseUrl ?>';
 
   document.addEventListener('DOMContentLoaded', function() {
     // Verificar sessão salva no localStorage (persiste entre refreshes)
@@ -137,8 +139,7 @@
           .withSuccessHandler(function(r) {
             if (r && r.valida) {
               mostrarLoading('Abrindo o sistema...');
-              var baseUrl = window.location.href.split('?')[0];
-              window.location.href = baseUrl + '?pagina=reunioes&token=' + tokenSalvo;
+              window.top.location.href = BASE_URL + '?pagina=reunioes&token=' + tokenSalvo;
             } else {
               localStorage.removeItem('sm_token');
               localStorage.removeItem('sm_usuario');
@@ -250,8 +251,7 @@
           sessionStorage.setItem('sm_token', r.token);
           sessionStorage.setItem('sm_usuario', JSON.stringify(r.usuario));
           mostrarLoading('Abrindo o sistema...');
-          var baseUrl = window.location.href.split('?')[0];
-          window.location.href = baseUrl + '?pagina=reunioes&token=' + r.token;
+          window.top.location.href = BASE_URL + '?pagina=reunioes&token=' + r.token;
         } else {
           esconderLoading();
           setCarregando('btnEntrar', false);

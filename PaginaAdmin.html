@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Meeting — Admin</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <base target="_top">
   <script>
     var SESSAO_TOKEN   = '<?= sessaoToken ?>';
     var USUARIO_NOME   = '<?= usuarioNome ?>';
     var USUARIO_PERFIL = '<?= usuarioPerfil ?>';
+    var BASE_URL       = '<?= baseUrl ?>';
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

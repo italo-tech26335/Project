@@ -186,6 +186,7 @@ function doGet(e) {
       tmpl.sessaoToken   = token;
       tmpl.usuarioNome   = sessao.nome;
       tmpl.usuarioPerfil = sessao.perfil;
+      tmpl.baseUrl       = ScriptApp.getService().getUrl();
       return tmpl.evaluate()
         .setTitle('Smart Meeting - Painel Admin')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -214,6 +215,7 @@ function doGet(e) {
     tmpl.usuarioNome   = sessao.nome;
     tmpl.usuarioPerfil = sessao.perfil;
     tmpl.modoAdmin     = (sessao.perfil === 'admin');
+    tmpl.baseUrl       = ScriptApp.getService().getUrl();
 
     return tmpl.evaluate()
       .setTitle(titulo)
@@ -230,6 +232,7 @@ function _servirLogin(mensagemErro) {
   const tmpl = HtmlService.createTemplateFromFile('Login');
   tmpl.mensagemErroUrl = mensagemErro || '';
   tmpl.tokenReset = '';
+  tmpl.baseUrl = ScriptApp.getService().getUrl();
   return tmpl.evaluate()
     .setTitle('Smart Meeting - Login')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -240,6 +243,7 @@ function _servirReset(rt) {
   const tmpl = HtmlService.createTemplateFromFile('Login');
   tmpl.mensagemErroUrl = '';
   tmpl.tokenReset = rt || '';
+  tmpl.baseUrl = ScriptApp.getService().getUrl();
   return tmpl.evaluate()
     .setTitle('Smart Meeting - Redefinir Senha')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
