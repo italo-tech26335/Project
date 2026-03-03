@@ -10,6 +10,16 @@
   <?!= include('Login-CSS') ?>
 </head>
 <body>
+
+<!-- ══ TELA DE CARREGAMENTO GLOBAL ══ -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-copo">
+    <div class="loading-anel"></div>
+  </div>
+  <div class="loading-texto" id="loadingTexto">Autenticando...</div>
+  <div class="loading-barra"></div>
+</div>
+
 <div class="login-bg"></div>
 
 <div class="login-card" id="painelLogin">
@@ -170,11 +180,20 @@
   function mostrarErro(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
   function mostrarSucesso(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
 
-  function setCarregando(btnId, carregando) {
+  function mostrarLoading(texto) {
+    document.getElementById('loadingTexto').textContent = texto || 'Carregando...';
+    document.getElementById('loadingOverlay').classList.add('visivel');
+  }
+
+  function esconderLoading() {
+    document.getElementById('loadingOverlay').classList.remove('visivel');
+  }
+
+  function setCarregando(btnId, carregando, texto) {
     var btn = document.getElementById(btnId);
     if (carregando) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Aguarde...';
+      btn.innerHTML = '<span class="spinner"></span> ' + (texto || 'Aguarde...');
     } else {
       btn.disabled = false;
     }
@@ -190,24 +209,27 @@
       return;
     }
 
-    setCarregando('btnEntrar', true);
-    document.getElementById('btnEntrar').innerHTML = '<span class="spinner"></span> Entrando...';
+    setCarregando('btnEntrar', true, 'Entrando...');
+    mostrarLoading('Autenticando...');
 
     google.script.run
       .withSuccessHandler(function(r) {
-        setCarregando('btnEntrar', false);
-        document.getElementById('btnEntrar').textContent = 'Entrar';
         if (r.sucesso) {
           sessionStorage.setItem('sm_token', r.token);
           sessionStorage.setItem('sm_usuario', JSON.stringify(r.usuario));
+          mostrarLoading('Abrindo o sistema...');
           google.script.run.withSuccessHandler(function(url) {
             window.location.href = url + '?pagina=reunioes&token=' + r.token;
           }).obterUrlWebApp();
         } else {
+          esconderLoading();
+          setCarregando('btnEntrar', false);
+          document.getElementById('btnEntrar').textContent = 'Entrar';
           mostrarErro('erroLogin', r.mensagem || 'Erro ao fazer login.');
         }
       })
       .withFailureHandler(function() {
+        esconderLoading();
         setCarregando('btnEntrar', false);
         document.getElementById('btnEntrar').textContent = 'Entrar';
         mostrarErro('erroLogin', 'Erro de conexao. Tente novamente.');
@@ -220,17 +242,19 @@
     var email = document.getElementById('inputEmailReset').value.trim();
     if (!email) { mostrarErro('erroReset', 'Informe seu email.'); return; }
 
-    setCarregando('btnReset', true);
-    document.getElementById('btnReset').innerHTML = '<span class="spinner"></span> Enviando...';
+    setCarregando('btnReset', true, 'Enviando...');
+    mostrarLoading('Enviando email...');
 
     google.script.run
       .withSuccessHandler(function(r) {
+        esconderLoading();
         setCarregando('btnReset', false);
         document.getElementById('btnReset').textContent = 'Enviar link';
         mostrarSucesso('sucessoReset', r.mensagem || 'Email enviado!');
         document.getElementById('inputEmailReset').value = '';
       })
       .withFailureHandler(function() {
+        esconderLoading();
         setCarregando('btnReset', false);
         document.getElementById('btnReset').textContent = 'Enviar link';
         mostrarErro('erroReset', 'Erro ao enviar. Tente novamente.');
@@ -246,11 +270,12 @@
     if (!nova || !confirma) { mostrarErro('erroNovaSenha', 'Preencha os dois campos.'); return; }
     if (nova !== confirma) { mostrarErro('erroNovaSenha', 'As senhas nao coincidem.'); return; }
 
-    setCarregando('btnNovaSenha', true);
-    document.getElementById('btnNovaSenha').innerHTML = '<span class="spinner"></span> Salvando...';
+    setCarregando('btnNovaSenha', true, 'Salvando...');
+    mostrarLoading('Salvando nova senha...');
 
     google.script.run
       .withSuccessHandler(function(r) {
+        esconderLoading();
         setCarregando('btnNovaSenha', false);
         document.getElementById('btnNovaSenha').textContent = 'Salvar nova senha';
         if (r.sucesso) {
@@ -261,6 +286,7 @@
         }
       })
       .withFailureHandler(function() {
+        esconderLoading();
         setCarregando('btnNovaSenha', false);
         document.getElementById('btnNovaSenha').textContent = 'Salvar nova senha';
         mostrarErro('erroNovaSenha', 'Erro de conexao.');
