@@ -9,17 +9,19 @@ const NOME_ABA_USUARIOS = 'Usuarios';
 const NOME_ABA_LOGS     = 'Logs';
 
 const COLUNAS_USUARIOS = {
-  ID:               0,
-  EMAIL:            1,
-  SENHA_HASH:       2,
-  SALT:             3,
-  NOME:             4,
-  PERFIL:           5,   // admin | usuario | visualizador
-  ATIVO:            6,
-  CRIADO_EM:        7,
-  ULTIMO_LOGIN:     8,
-  TENTATIVAS_LOGIN: 9,
-  BLOQUEADO_ATE:    10
+  ID:                0,
+  EMAIL:             1,
+  SENHA_HASH:        2,
+  SALT:              3,
+  NOME:              4,
+  PERFIL:            5,   // admin | usuario | visualizador
+  ATIVO:             6,
+  CRIADO_EM:         7,
+  ULTIMO_LOGIN:      8,
+  TENTATIVAS_LOGIN:  9,
+  BLOQUEADO_ATE:     10,
+  DEPARTAMENTOS_IDS: 11, // IDs separados por vírgula; vazio = sem restrição (admin)
+  PAGINAS_PERMITIDAS:12  // IDs de páginas separados por vírgula: reunioes,projeto,relatorios; vazio = todas
 };
 
 const COLUNAS_LOGS = {
@@ -88,6 +90,12 @@ function fazerLogin(email, senha) {
       return { sucesso: false, mensagem: 'Conta inativa. Contate o administrador.' };
     }
 
+    // Primeiro acesso — usuário ainda sem senha definida
+    if (usuario.senhaHash === 'PRIMEIRO_ACESSO') {
+      _registrarLog('primeiro_acesso', email, '', 'redirecionado para definir PIN', 'info');
+      return { sucesso: false, primeiroAcesso: true, email: email, nome: usuario.nome };
+    }
+
     // Verificar senha
     var hashCalculado = _hashSenha(senha.toString(), usuario.salt);
     if (hashCalculado !== usuario.senhaHash) {
@@ -114,7 +122,7 @@ function fazerLogin(email, senha) {
 
     // Criar nova sessão
     var token = _criarToken();
-    _salvarSessao(token, email, usuario.perfil, usuario.nome);
+    _salvarSessao(token, email, usuario.perfil, usuario.nome, usuario.departamentosIds, usuario.paginasPermitidas);
 
     _registrarLog('login_sucesso', email, '', 'login realizado', 'sucesso');
 
@@ -256,6 +264,37 @@ function redefinirSenha(tokenReset, novaSenha) {
 }
 
 /**
+ * Define o PIN (4 dígitos) no primeiro acesso do usuário.
+ * Não requer sessão — identificado pelo email.
+ */
+function definirSenhaPrimeiroAcesso(email, novaSenha) {
+  try {
+    if (!email || !novaSenha) return { sucesso: false, mensagem: 'Dados incompletos.' };
+    email = email.toString().trim().toLowerCase();
+
+    var usuario = _buscarUsuarioPorEmail(email);
+    if (!usuario) return { sucesso: false, mensagem: 'Usuário não encontrado.' };
+    if (!usuario.ativo) return { sucesso: false, mensagem: 'Conta inativa. Contate o administrador.' };
+    if (usuario.senhaHash !== 'PRIMEIRO_ACESSO') {
+      return { sucesso: false, mensagem: 'Este usuário já possui senha definida. Use "Esqueci minha senha" se necessário.' };
+    }
+
+    var validacao = _validarForcaSenha(novaSenha.toString());
+    if (!validacao.valida) return { sucesso: false, mensagem: validacao.mensagem };
+
+    var salt = _gerarSalt();
+    var hash = _hashSenha(novaSenha.toString(), salt);
+    _atualizarSenhaUsuario(email, hash, salt);
+
+    _registrarLog('primeiro_acesso_concluido', email, '', 'PIN definido com sucesso', 'sucesso');
+    return { sucesso: true, mensagem: 'PIN criado! Faça login agora.' };
+  } catch (e) {
+    Logger.log('ERRO definirSenhaPrimeiroAcesso: ' + e.toString());
+    return { sucesso: false, mensagem: 'Erro interno.' };
+  }
+}
+
+/**
  * Retorna dados do usuário logado com base no token.
  * @returns {Object} {sucesso, usuario}
  */
@@ -292,16 +331,20 @@ function listarUsuarios(token) {
       if (dados[i][COLUNAS_USUARIOS.ID]) {
         var bloqueadoAte = dados[i][COLUNAS_USUARIOS.BLOQUEADO_ATE];
         var estaBloqueado = bloqueadoAte && new Date(bloqueadoAte).getTime() > Date.now();
+        var rawDeps = (dados[i][COLUNAS_USUARIOS.DEPARTAMENTOS_IDS] || '').toString();
         usuarios.push({
-          id:            dados[i][COLUNAS_USUARIOS.ID],
-          email:         dados[i][COLUNAS_USUARIOS.EMAIL],
-          nome:          dados[i][COLUNAS_USUARIOS.NOME],
-          perfil:        dados[i][COLUNAS_USUARIOS.PERFIL],
-          ativo:         dados[i][COLUNAS_USUARIOS.ATIVO] === true || dados[i][COLUNAS_USUARIOS.ATIVO] === 'true',
-          criadoEm:      dados[i][COLUNAS_USUARIOS.CRIADO_EM] ? new Date(dados[i][COLUNAS_USUARIOS.CRIADO_EM]).toLocaleString('pt-BR') : '',
-          ultimoLogin:   dados[i][COLUNAS_USUARIOS.ULTIMO_LOGIN] ? new Date(dados[i][COLUNAS_USUARIOS.ULTIMO_LOGIN]).toLocaleString('pt-BR') : 'Nunca',
-          bloqueado:     estaBloqueado,
-          bloqueadoAte:  estaBloqueado ? new Date(bloqueadoAte).toLocaleString('pt-BR') : null
+          id:                dados[i][COLUNAS_USUARIOS.ID],
+          email:             dados[i][COLUNAS_USUARIOS.EMAIL],
+          nome:              dados[i][COLUNAS_USUARIOS.NOME],
+          perfil:            dados[i][COLUNAS_USUARIOS.PERFIL],
+          ativo:             dados[i][COLUNAS_USUARIOS.ATIVO] === true || dados[i][COLUNAS_USUARIOS.ATIVO] === 'true',
+          criadoEm:          dados[i][COLUNAS_USUARIOS.CRIADO_EM] ? new Date(dados[i][COLUNAS_USUARIOS.CRIADO_EM]).toLocaleString('pt-BR') : '',
+          ultimoLogin:       dados[i][COLUNAS_USUARIOS.ULTIMO_LOGIN] ? new Date(dados[i][COLUNAS_USUARIOS.ULTIMO_LOGIN]).toLocaleString('pt-BR') : 'Nunca',
+          bloqueado:         estaBloqueado,
+          bloqueadoAte:      estaBloqueado ? new Date(bloqueadoAte).toLocaleString('pt-BR') : null,
+          primeiroAcesso:    dados[i][COLUNAS_USUARIOS.SENHA_HASH] === 'PRIMEIRO_ACESSO',
+          departamentosIds:  rawDeps ? rawDeps.split(',').map(function(d) { return d.trim(); }).filter(function(d) { return d !== ''; }) : [],
+          paginasPermitidas: (function() { var raw = (dados[i][COLUNAS_USUARIOS.PAGINAS_PERMITIDAS] || '').toString().trim(); return raw ? raw.split(',').map(function(p) { return p.trim(); }).filter(function(p) { return p !== ''; }) : []; })()
         });
       }
     }
@@ -320,8 +363,8 @@ function criarUsuario(token, dados) {
     var sessao = _sessaoAdmin(token);
     if (!sessao) return { sucesso: false, mensagem: 'Acesso negado.' };
 
-    if (!dados.email || !dados.nome || !dados.senha || !dados.perfil) {
-      return { sucesso: false, mensagem: 'Campos obrigatórios: email, nome, senha, perfil.' };
+    if (!dados.email || !dados.nome || !dados.perfil) {
+      return { sucesso: false, mensagem: 'Campos obrigatórios: email, nome, perfil.' };
     }
 
     var email = dados.email.toString().trim().toLowerCase();
@@ -329,12 +372,22 @@ function criarUsuario(token, dados) {
       return { sucesso: false, mensagem: 'Email já cadastrado.' };
     }
 
-    var validacao = _validarForcaSenha(dados.senha.toString());
-    if (!validacao.valida) return { sucesso: false, mensagem: validacao.mensagem };
-
-    var salt = _gerarSalt();
-    var hash = _hashSenha(dados.senha.toString(), salt);
+    // Usuário criado sem senha — aguarda primeiro acesso para definir PIN
+    var hash = 'PRIMEIRO_ACESSO';
+    var salt = '';
     var id = gerarId();
+    var depIds = '';
+    if (dados.departamentosIds) {
+      depIds = Array.isArray(dados.departamentosIds)
+        ? dados.departamentosIds.join(',')
+        : dados.departamentosIds.toString();
+    }
+    var pagIds = '';
+    if (dados.paginasPermitidas) {
+      pagIds = Array.isArray(dados.paginasPermitidas)
+        ? dados.paginasPermitidas.join(',')
+        : dados.paginasPermitidas.toString();
+    }
 
     var aba = obterAba(NOME_ABA_USUARIOS);
     aba.appendRow([
@@ -348,7 +401,9 @@ function criarUsuario(token, dados) {
       new Date(),
       '',
       0,
-      ''
+      '',
+      depIds,
+      pagIds
     ]);
     limparCacheAba(NOME_ABA_USUARIOS);
 
@@ -359,9 +414,8 @@ function criarUsuario(token, dados) {
           subject: 'Smart Meeting - Bem-vindo!',
           body: 'Olá, ' + dados.nome + '!\n\n' +
                 'Sua conta no Smart Meeting foi criada.\n\n' +
-                'Email: ' + email + '\n' +
-                'Senha temporária: ' + dados.senha + '\n\n' +
-                'Acesse e altere sua senha assim que possível.\n\n' +
+                'Login: ' + email + '\n\n' +
+                'No seu primeiro acesso, você será solicitado a criar um PIN de 4 dígitos.\n\n' +
                 'Smart Meeting'
         });
       } catch (mailErr) {
@@ -393,9 +447,21 @@ function atualizarUsuario(token, dados) {
     for (var i = 1; i < rows.length; i++) {
       if (rows[i][COLUNAS_USUARIOS.ID] === dados.id) {
         var linha = i + 1;
-        if (dados.nome  !== undefined) aba.getRange(linha, COLUNAS_USUARIOS.NOME   + 1).setValue(dados.nome);
-        if (dados.perfil !== undefined) aba.getRange(linha, COLUNAS_USUARIOS.PERFIL + 1).setValue(dados.perfil);
-        if (dados.ativo  !== undefined) aba.getRange(linha, COLUNAS_USUARIOS.ATIVO  + 1).setValue(dados.ativo);
+        if (dados.nome             !== undefined) aba.getRange(linha, COLUNAS_USUARIOS.NOME              + 1).setValue(dados.nome);
+        if (dados.perfil           !== undefined) aba.getRange(linha, COLUNAS_USUARIOS.PERFIL            + 1).setValue(dados.perfil);
+        if (dados.ativo            !== undefined) aba.getRange(linha, COLUNAS_USUARIOS.ATIVO             + 1).setValue(dados.ativo);
+        if (dados.departamentosIds !== undefined) {
+          var depStr = Array.isArray(dados.departamentosIds)
+            ? dados.departamentosIds.join(',')
+            : dados.departamentosIds.toString();
+          aba.getRange(linha, COLUNAS_USUARIOS.DEPARTAMENTOS_IDS + 1).setValue(depStr);
+        }
+        if (dados.paginasPermitidas !== undefined) {
+          var pagStr = Array.isArray(dados.paginasPermitidas)
+            ? dados.paginasPermitidas.join(',')
+            : dados.paginasPermitidas.toString();
+          aba.getRange(linha, COLUNAS_USUARIOS.PAGINAS_PERMITIDAS + 1).setValue(pagStr);
+        }
         limparCacheAba(NOME_ABA_USUARIOS);
         _registrarLog('atualizar_usuario', sessao.email, '', 'usuário atualizado: ' + rows[i][COLUNAS_USUARIOS.EMAIL], 'sucesso');
         return { sucesso: true, mensagem: 'Usuário atualizado!' };
@@ -457,31 +523,28 @@ function resetarSenhaAdmin(token, userId) {
       if (rows[i][COLUNAS_USUARIOS.ID] === userId) {
         var emailUsuario = rows[i][COLUNAS_USUARIOS.EMAIL];
         var nomeUsuario  = rows[i][COLUNAS_USUARIOS.NOME];
-        var novaSenha = _gerarSenhaTemporaria();
-        var salt = _gerarSalt();
-        var hash = _hashSenha(novaSenha, salt);
-
         var linha = i + 1;
-        aba.getRange(linha, COLUNAS_USUARIOS.SENHA_HASH + 1).setValue(hash);
-        aba.getRange(linha, COLUNAS_USUARIOS.SALT       + 1).setValue(salt);
+
+        // Marca como primeiro acesso — usuário definirá novo PIN ao logar
+        aba.getRange(linha, COLUNAS_USUARIOS.SENHA_HASH + 1).setValue('PRIMEIRO_ACESSO');
+        aba.getRange(linha, COLUNAS_USUARIOS.SALT       + 1).setValue('');
         limparCacheAba(NOME_ABA_USUARIOS);
 
         try {
           MailApp.sendEmail({
             to: emailUsuario,
-            subject: 'Smart Meeting - Senha Redefinida',
+            subject: 'Smart Meeting - Redefinição de Acesso',
             body: 'Olá, ' + nomeUsuario + '!\n\n' +
-                  'Sua senha foi redefinida pelo administrador.\n\n' +
-                  'Nova senha temporária: ' + novaSenha + '\n\n' +
-                  'Acesse e altere sua senha assim que possível.\n\n' +
+                  'O administrador resetou seu acesso ao Smart Meeting.\n\n' +
+                  'No próximo login com seu email (' + emailUsuario + '), você será solicitado a criar um novo PIN de 4 dígitos.\n\n' +
                   'Smart Meeting'
           });
         } catch (mailErr) {
           Logger.log('Erro ao enviar email reset: ' + mailErr.toString());
         }
 
-        _registrarLog('reset_senha', sessao.email, '', 'senha resetada para: ' + emailUsuario, 'sucesso');
-        return { sucesso: true, mensagem: 'Senha resetada e enviada por email.' };
+        _registrarLog('reset_senha', sessao.email, '', 'acesso resetado para: ' + emailUsuario, 'sucesso');
+        return { sucesso: true, mensagem: 'Acesso resetado! Usuário deverá criar novo PIN no próximo login.' };
       }
     }
     return { sucesso: false, mensagem: 'Usuário não encontrado.' };
@@ -531,7 +594,7 @@ function obterLogs(token, filtros) {
 
 function setupAdminInicial() {
   repararHeaderUsuarios();
-  inicializarAdmin('napa13@christus.com.br', 'A@a12345678', 'Italo');
+  inicializarAdmin('italotrabalhodados@gmail.com', '5678', 'Italo');
 }
 
 /**
@@ -633,13 +696,31 @@ function _encodarEmail(email) {
   return Utilities.base64Encode(email.toLowerCase()).replace(/=/g, '');
 }
 
-function _salvarSessao(token, email, perfil, nome) {
+function _salvarSessao(token, email, perfil, nome, departamentosIds, paginasPermitidas) {
+  var deps = [];
+  if (departamentosIds) {
+    if (Array.isArray(departamentosIds)) {
+      deps = departamentosIds;
+    } else {
+      deps = departamentosIds.toString().split(',').map(function(d) { return d.trim(); }).filter(function(d) { return d !== ''; });
+    }
+  }
+  var pags = [];
+  if (paginasPermitidas) {
+    if (Array.isArray(paginasPermitidas)) {
+      pags = paginasPermitidas;
+    } else {
+      pags = paginasPermitidas.toString().split(',').map(function(p) { return p.trim(); }).filter(function(p) { return p !== ''; });
+    }
+  }
   var dados = JSON.stringify({
-    email:  email,
-    perfil: perfil,
-    nome:   nome || email,
-    expiry: Date.now() + SESSAO_TTL_MS,
-    criadoEm: Date.now()
+    email:             email,
+    perfil:            perfil,
+    nome:              nome || email,
+    departamentosIds:  deps,
+    paginasPermitidas: pags,
+    expiry:            Date.now() + SESSAO_TTL_MS,
+    criadoEm:          Date.now()
   });
   PropertiesService.getScriptProperties().setProperty(PFX_SESSAO + token, dados);
 }
@@ -789,14 +870,17 @@ function _buscarUsuarioPorEmail(email) {
 
   for (var i = 1; i < dados.length; i++) {
     if ((dados[i][COLUNAS_USUARIOS.EMAIL] || '').toLowerCase() === emailLower) {
+      var rawDeps = (dados[i][COLUNAS_USUARIOS.DEPARTAMENTOS_IDS] || '').toString();
       return {
-        id:        dados[i][COLUNAS_USUARIOS.ID],
-        email:     dados[i][COLUNAS_USUARIOS.EMAIL],
-        senhaHash: dados[i][COLUNAS_USUARIOS.SENHA_HASH],
-        salt:      dados[i][COLUNAS_USUARIOS.SALT],
-        nome:      dados[i][COLUNAS_USUARIOS.NOME],
-        perfil:    dados[i][COLUNAS_USUARIOS.PERFIL],
-        ativo:     dados[i][COLUNAS_USUARIOS.ATIVO] === true || dados[i][COLUNAS_USUARIOS.ATIVO] === 'true'
+        id:               dados[i][COLUNAS_USUARIOS.ID],
+        email:            dados[i][COLUNAS_USUARIOS.EMAIL],
+        senhaHash:         dados[i][COLUNAS_USUARIOS.SENHA_HASH],
+        salt:              dados[i][COLUNAS_USUARIOS.SALT],
+        nome:              dados[i][COLUNAS_USUARIOS.NOME],
+        perfil:            dados[i][COLUNAS_USUARIOS.PERFIL],
+        ativo:             dados[i][COLUNAS_USUARIOS.ATIVO] === true || dados[i][COLUNAS_USUARIOS.ATIVO] === 'true',
+        departamentosIds:  rawDeps ? rawDeps.split(',').map(function(d) { return d.trim(); }).filter(function(d) { return d !== ''; }) : [],
+        paginasPermitidas: (function() { var raw = (dados[i][COLUNAS_USUARIOS.PAGINAS_PERMITIDAS] || '').toString().trim(); return raw ? raw.split(',').map(function(p) { return p.trim(); }).filter(function(p) { return p !== ''; }) : []; })()
       };
     }
   }
@@ -839,17 +923,8 @@ function _sessaoAdmin(token) {
 }
 
 function _validarForcaSenha(senha) {
-  if (senha.length < 8) {
-    return { valida: false, mensagem: 'Senha deve ter pelo menos 8 caracteres.' };
-  }
-  if (!/[A-Z]/.test(senha)) {
-    return { valida: false, mensagem: 'Senha deve conter pelo menos uma letra maiúscula.' };
-  }
-  if (!/[0-9]/.test(senha)) {
-    return { valida: false, mensagem: 'Senha deve conter pelo menos um número.' };
-  }
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
-    return { valida: false, mensagem: 'Senha deve conter pelo menos um caractere especial.' };
+  if (!/^\d{4}$/.test(senha)) {
+    return { valida: false, mensagem: 'O PIN deve ter exatamente 4 dígitos numéricos.' };
   }
   return { valida: true };
 }

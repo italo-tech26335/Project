@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(clasp pull)",
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git commit:*)",
+      "Bash(clasp push)",
+      "Bash(git add Code☢️.js Auth.js)",
+      "Bash(git add Login-CSS.html Login.html)",
+      "Bash(git add PaginaReunioes▶️.html Login.html \"Compartilhado-Utilidades🔧.html\")",
+      "Bash(git add Compartilhado-Utilidades🔧.html Login.html PaginaReunioes▶️.html)",
+      "Bash(git push origin main)",
+      "Bash(git add Code☢️.js Compartilhado-Utilidades🔧.html Login.html PaginaReunioes▶️.html PaginaAdmin.html \"PaginaProjetoDetalhe🟡.html\" PaginaRelatorios.html)"
     ]
   }
 }

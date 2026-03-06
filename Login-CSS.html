@@ -182,9 +182,92 @@
   }
   .link-reset a:hover { color: var(--ocre-hover); text-decoration: underline; }
 
-  /* ── Painel reset / nova senha ─────────────────────────────────── */
-  .painel-reset     { display: none; }
+  /* ── Painel reset / nova senha / escolha de página ────────────── */
+  .painel-reset      { display: none; }
   .painel-nova-senha { display: none; }
+  .painel-escolha    { display: none; }
+
+  .escolha-saudacao {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .escolha-saudacao .icon {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, var(--ocre), var(--ocre-hover));
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 14px rgba(196,130,42,0.35);
+  }
+  .escolha-saudacao h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--marrom);
+    letter-spacing: -.02em;
+  }
+  .escolha-saudacao p {
+    font-size: .85rem;
+    color: var(--marrom-claro);
+    margin-top: 4px;
+  }
+
+  .escolha-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .escolha-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid var(--creme-escuro);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--marrom);
+    cursor: pointer;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+  .escolha-item:hover {
+    border-color: var(--ocre-borda);
+    box-shadow: 0 2px 12px var(--ocre-claro);
+    background: var(--creme-claro);
+  }
+  .escolha-item-icone {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    background: var(--ocre-claro);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--ocre);
+    flex-shrink: 0;
+  }
+  .escolha-item-texto strong {
+    display: block;
+    font-size: .95rem;
+    font-weight: 600;
+  }
+  .escolha-item-texto span {
+    font-size: .78rem;
+    color: var(--marrom-claro);
+  }
+  .escolha-item-seta {
+    margin-left: auto;
+    color: var(--creme-escuro);
+    font-size: .85rem;
+    transition: color .2s, transform .2s;
+  }
+  .escolha-item:hover .escolha-item-seta {
+    color: var(--ocre);
+    transform: translateX(3px);
+  }
   .btn-voltar {
     background: none; border: none;
     color: var(--ocre); cursor: pointer;

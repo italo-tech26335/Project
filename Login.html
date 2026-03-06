@@ -37,6 +37,7 @@
   <div class="msg-erro" id="erroLogin"></div>
   <div class="msg-sucesso" id="sucessoLogin"></div>
 
+  <form onsubmit="fazerLogin(); return false;" autocomplete="on">
   <div class="form-group">
     <label>Email</label>
     <div class="input-wrap">
@@ -54,10 +55,62 @@
     </div>
   </div>
 
-  <button class="btn-entrar" id="btnEntrar" onclick="fazerLogin()">Entrar</button>
+  <button class="btn-entrar" id="btnEntrar" type="submit">Entrar</button>
+  </form>
 
   <div class="link-reset">
     <a onclick="mostrarReset()">Esqueci minha senha</a>
+    &nbsp;·&nbsp;
+    <a onclick="irParaPrimeiroAcesso()">Primeiro acesso</a>
+  </div>
+</div>
+
+<div class="login-card painel-escolha" id="painelEscolha">
+  <div class="escolha-saudacao">
+    <div class="icon">&#9889;</div>
+    <h2>Bem-vindo, <span id="escolhaNome">usuário</span>!</h2>
+    <p>Onde você quer ir hoje?</p>
+  </div>
+
+  <div class="escolha-grid">
+    <a class="escolha-item" id="linkReunioes" href="#">
+      <div class="escolha-item-icone"><i class="fas fa-video"></i></div>
+      <div class="escolha-item-texto">
+        <strong>Reuniões</strong>
+        <span>Gerencie e transcreva reuniões</span>
+      </div>
+      <i class="fas fa-chevron-right escolha-item-seta"></i>
+    </a>
+    <a class="escolha-item" id="linkProjetos" href="#">
+      <div class="escolha-item-icone"><i class="fas fa-project-diagram"></i></div>
+      <div class="escolha-item-texto">
+        <strong>Projetos</strong>
+        <span>Acompanhe projetos e atividades</span>
+      </div>
+      <i class="fas fa-chevron-right escolha-item-seta"></i>
+    </a>
+    <a class="escolha-item" id="linkRelatorios" href="#">
+      <div class="escolha-item-icone"><i class="fas fa-clipboard-check"></i></div>
+      <div class="escolha-item-texto">
+        <strong>Relatórios IA</strong>
+        <span>Analise atas e insights das reuniões</span>
+      </div>
+      <i class="fas fa-chevron-right escolha-item-seta"></i>
+    </a>
+    <a class="escolha-item" id="linkAdmin" href="#" style="display:none;">
+      <div class="escolha-item-icone"><i class="fas fa-shield-alt"></i></div>
+      <div class="escolha-item-texto">
+        <strong>Painel Admin</strong>
+        <span>Gerencie usuários e logs do sistema</span>
+      </div>
+      <i class="fas fa-chevron-right escolha-item-seta"></i>
+    </a>
+  </div>
+
+  <div style="text-align:center;">
+    <a onclick="fazerLogoutEscolha()" style="color:var(--marrom-claro);font-size:.8rem;cursor:pointer;text-decoration:none;">
+      <i class="fas fa-sign-out-alt"></i> Sair
+    </a>
   </div>
 </div>
 
@@ -75,6 +128,7 @@
   <div class="msg-erro" id="erroReset"></div>
   <div class="msg-sucesso" id="sucessoReset"></div>
 
+  <form onsubmit="enviarReset(); return false;" autocomplete="on">
   <div class="form-group">
     <label>Email cadastrado</label>
     <div class="input-wrap">
@@ -82,7 +136,59 @@
     </div>
   </div>
 
-  <button class="btn-entrar" id="btnReset" onclick="enviarReset()">Enviar link</button>
+  <button class="btn-entrar" id="btnReset" type="submit">Enviar link</button>
+  </form>
+</div>
+
+<div class="login-card painel-nova-senha" id="painelPrimeiroAcesso">
+  <button class="btn-voltar" onclick="voltarLogin()">
+    <i class="fas fa-arrow-left"></i> Voltar ao login
+  </button>
+
+  <div class="login-logo">
+    <div class="icon">&#128273;</div>
+    <h1>Primeiro Acesso</h1>
+    <p>Crie seu PIN de <strong>4 dígitos</strong></p>
+  </div>
+
+  <div class="msg-erro"    id="erroPrimeiroAcesso"></div>
+  <div class="msg-sucesso" id="sucessoPrimeiroAcesso"></div>
+
+  <form onsubmit="salvarPinPrimeiroAcesso(); return false;" autocomplete="off">
+  <div class="form-group">
+    <label>Email cadastrado</label>
+    <div class="input-wrap">
+      <input type="email" id="primeiroAcessoEmail" placeholder="seu@email.com" autocomplete="email">
+    </div>
+  </div>
+  <div class="form-group" style="margin-bottom:8px;">
+    <label id="primeiroAcessoNomeLabel" style="font-size:.85rem;color:#64748b;"></label>
+  </div>
+  <div class="form-group">
+    <label>PIN de acesso</label>
+    <div class="input-wrap">
+      <input type="password" id="inputPin1" placeholder="4 dígitos" maxlength="4" pattern="\d{4}" inputmode="numeric"
+             autocomplete="new-password" oninput="this.value=this.value.replace(/\D/g,'').slice(0,4)">
+      <button type="button" class="toggle-senha" onclick="toggleSenha('inputPin1', this)">
+        <i class="fas fa-eye"></i>
+      </button>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>Confirmar PIN</label>
+    <div class="input-wrap">
+      <input type="password" id="inputPin2" placeholder="4 dígitos" maxlength="4" pattern="\d{4}" inputmode="numeric"
+             autocomplete="new-password" oninput="this.value=this.value.replace(/\D/g,'').slice(0,4)">
+      <button type="button" class="toggle-senha" onclick="toggleSenha('inputPin2', this)">
+        <i class="fas fa-eye"></i>
+      </button>
+    </div>
+  </div>
+  <small style="color:#64748b;font-size:.8rem;display:block;margin-bottom:16px;">
+    Use apenas números. Este PIN será solicitado em todo login.
+  </small>
+  <button class="btn-entrar" id="btnPinSalvar" type="submit">Criar PIN e entrar</button>
+  </form>
 </div>
 
 <div class="login-card painel-nova-senha" id="painelNovaSenha">
@@ -95,10 +201,11 @@
   <div class="msg-erro" id="erroNovaSenha"></div>
   <div class="msg-sucesso" id="sucessoNovaSenha"></div>
 
+  <form onsubmit="salvarNovaSenha(); return false;" autocomplete="on">
   <div class="form-group">
     <label>Nova Senha</label>
     <div class="input-wrap">
-      <input type="password" id="inputNovaSenha" placeholder="Minimo 8 caracteres" autocomplete="new-password">
+      <input type="password" id="inputNovaSenha" placeholder="4 dígitos numéricos" autocomplete="new-password">
       <button type="button" class="toggle-senha" onclick="toggleSenha('inputNovaSenha', this)">
         <i class="fas fa-eye"></i>
       </button>
@@ -116,10 +223,11 @@
   </div>
 
   <small style="color:#64748b;font-size:.8rem;display:block;margin-bottom:16px;">
-    Minimo 8 caracteres, 1 letra maiuscula, 1 numero e 1 caractere especial.
+    Somente 4 dígitos numéricos.
   </small>
 
-  <button class="btn-entrar" id="btnNovaSenha" onclick="salvarNovaSenha()">Salvar nova senha</button>
+  <button class="btn-entrar" id="btnNovaSenha" type="submit">Salvar nova senha</button>
+  </form>
 </div>
 
 <script>
@@ -138,8 +246,10 @@
         google.script.run
           .withSuccessHandler(function(r) {
             if (r && r.valida) {
-              mostrarLoading('Abrindo o sistema...');
-              window.top.location.href = BASE_URL + '?pagina=reunioes&token=' + tokenSalvo;
+              esconderLoading();
+              var usuarioSalvo = null;
+              try { usuarioSalvo = JSON.parse(localStorage.getItem('sm_usuario') || 'null'); } catch(e) {}
+              _mostrarEscolhaPagina(tokenSalvo, usuarioSalvo);
             } else {
               localStorage.removeItem('sm_token');
               localStorage.removeItem('sm_usuario');
@@ -163,24 +273,15 @@
     }
 
     document.getElementById('inputEmail').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') document.getElementById('inputSenha').focus();
-    });
-    document.getElementById('inputSenha').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') fazerLogin();
-    });
-    document.getElementById('inputEmailReset').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') enviarReset();
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('inputSenha').focus(); }
     });
     document.getElementById('inputNovaSenha').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') document.getElementById('inputConfirmaSenha').focus();
-    });
-    document.getElementById('inputConfirmaSenha').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') salvarNovaSenha();
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('inputConfirmaSenha').focus(); }
     });
   });
 
   function mostrarPainel(id) {
-    ['painelLogin', 'painelReset', 'painelNovaSenha'].forEach(function(p) {
+    ['painelLogin', 'painelEscolha', 'painelReset', 'painelNovaSenha', 'painelPrimeiroAcesso'].forEach(function(p) {
       var el = document.getElementById(p);
       if (el) el.style.display = (p === id) ? 'block' : 'none';
     });
@@ -188,6 +289,19 @@
 
   function mostrarReset() { mostrarPainel('painelReset'); }
   function voltarLogin() { mostrarPainel('painelLogin'); limparMensagens(); }
+
+  function irParaPrimeiroAcesso() {
+    var emailEl = document.getElementById('primeiroAcessoEmail');
+    emailEl.value = '';
+    emailEl.readOnly = false;
+    document.getElementById('primeiroAcessoNomeLabel').textContent = '';
+    document.getElementById('erroPrimeiroAcesso').textContent = '';
+    document.getElementById('sucessoPrimeiroAcesso').textContent = '';
+    document.getElementById('inputPin1').value = '';
+    document.getElementById('inputPin2').value = '';
+    mostrarPainel('painelPrimeiroAcesso');
+    emailEl.focus();
+  }
 
   function toggleSenha(inputId, btn) {
     var input = document.getElementById(inputId);
@@ -245,17 +359,26 @@
 
     google.script.run
       .withSuccessHandler(function(r) {
-        if (r.sucesso) {
+        esconderLoading();
+        setCarregando('btnEntrar', false);
+        document.getElementById('btnEntrar').textContent = 'Entrar';
+        if (r.primeiroAcesso) {
+          var emailEl = document.getElementById('primeiroAcessoEmail');
+          emailEl.value = r.email || email;
+          emailEl.readOnly = true;
+          document.getElementById('primeiroAcessoNomeLabel').textContent = 'Bem-vindo(a), ' + (r.nome || '') + '! Crie seu PIN para continuar.';
+          document.getElementById('erroPrimeiroAcesso').textContent = '';
+          document.getElementById('sucessoPrimeiroAcesso').textContent = '';
+          document.getElementById('inputPin1').value = '';
+          document.getElementById('inputPin2').value = '';
+          mostrarPainel('painelPrimeiroAcesso');
+        } else if (r.sucesso) {
           localStorage.setItem('sm_token', r.token);
           localStorage.setItem('sm_usuario', JSON.stringify(r.usuario));
           sessionStorage.setItem('sm_token', r.token);
           sessionStorage.setItem('sm_usuario', JSON.stringify(r.usuario));
-          mostrarLoading('Abrindo o sistema...');
-          window.top.location.href = BASE_URL + '?pagina=reunioes&token=' + r.token;
+          _mostrarEscolhaPagina(r.token, r.usuario);
         } else {
-          esconderLoading();
-          setCarregando('btnEntrar', false);
-          document.getElementById('btnEntrar').textContent = 'Entrar';
           mostrarErro('erroLogin', r.mensagem || 'Erro ao fazer login.');
         }
       })
@@ -266,6 +389,70 @@
         mostrarErro('erroLogin', 'Erro de conexao. Tente novamente.');
       })
       .fazerLogin(email, senha);
+  }
+
+  function salvarPinPrimeiroAcesso() {
+    var email = document.getElementById('primeiroAcessoEmail').value.trim();
+    var pin1  = document.getElementById('inputPin1').value;
+    var pin2  = document.getElementById('inputPin2').value;
+
+    document.getElementById('erroPrimeiroAcesso').textContent = '';
+    document.getElementById('sucessoPrimeiroAcesso').textContent = '';
+
+    if (!pin1 || pin1.length !== 4) {
+      document.getElementById('erroPrimeiroAcesso').textContent = 'O PIN deve ter exatamente 4 dígitos.';
+      return;
+    }
+    if (pin1 !== pin2) {
+      document.getElementById('erroPrimeiroAcesso').textContent = 'Os PINs não coincidem.';
+      return;
+    }
+
+    setCarregando('btnPinSalvar', true, 'Salvando...');
+    mostrarLoading('Criando PIN...');
+
+    google.script.run
+      .withSuccessHandler(function(r) {
+        esconderLoading();
+        setCarregando('btnPinSalvar', false);
+        document.getElementById('btnPinSalvar').textContent = 'Criar PIN e entrar';
+        if (r.sucesso) {
+          document.getElementById('sucessoPrimeiroAcesso').textContent = r.mensagem || 'PIN criado! Entrando...';
+          // Auto-login
+          setTimeout(function() {
+            mostrarLoading('Autenticando...');
+            google.script.run
+              .withSuccessHandler(function(lr) {
+                esconderLoading();
+                if (lr.sucesso) {
+                  localStorage.setItem('sm_token', lr.token);
+                  localStorage.setItem('sm_usuario', JSON.stringify(lr.usuario));
+                  sessionStorage.setItem('sm_token', lr.token);
+                  sessionStorage.setItem('sm_usuario', JSON.stringify(lr.usuario));
+                  _mostrarEscolhaPagina(lr.token, lr.usuario);
+                } else {
+                  mostrarPainel('painelLogin');
+                  mostrarSucesso('sucessoLogin', 'PIN criado! Faça login agora.');
+                }
+              })
+              .withFailureHandler(function() {
+                esconderLoading();
+                mostrarPainel('painelLogin');
+                mostrarSucesso('sucessoLogin', 'PIN criado! Faça login agora.');
+              })
+              .fazerLogin(email, pin1);
+          }, 800);
+        } else {
+          document.getElementById('erroPrimeiroAcesso').textContent = r.mensagem || 'Erro ao criar PIN.';
+        }
+      })
+      .withFailureHandler(function() {
+        esconderLoading();
+        setCarregando('btnPinSalvar', false);
+        document.getElementById('btnPinSalvar').textContent = 'Criar PIN e entrar';
+        document.getElementById('erroPrimeiroAcesso').textContent = 'Erro de conexão. Tente novamente.';
+      })
+      .definirSenhaPrimeiroAcesso(email, pin1);
   }
 
   function enviarReset() {
@@ -323,6 +510,71 @@
         mostrarErro('erroNovaSenha', 'Erro de conexao.');
       })
       .redefinirSenha(TOKEN_RESET, nova);
+  }
+
+  function _mostrarEscolhaPagina(token, usuario) {
+    var nome = (usuario && usuario.nome) ? usuario.nome.split(' ')[0] : 'usuário';
+    document.getElementById('escolhaNome').textContent = nome;
+
+    var BASE = 'https://script.google.com/macros/s/AKfycbwJB8g7DHPjcCX4Bl2rclQze_TpOyZ0PB9sEFgHDNLdzCihG8AjHPXWvsOsoqvu1bh7/exec';
+    var tk = '&token=' + encodeURIComponent(token);
+
+    var ehAdmin = usuario && usuario.perfil === 'admin';
+    // null = sem restrição (admin ou usuário sem páginas restritas)
+    var permitidas = (!ehAdmin && usuario && Array.isArray(usuario.paginasPermitidas) && usuario.paginasPermitidas.length > 0)
+      ? usuario.paginasPermitidas
+      : null;
+
+    var paginas = { linkReunioes: 'reunioes', linkProjetos: 'projeto', linkRelatorios: 'relatorios' };
+    var paginasVisiveis = [];
+
+    Object.keys(paginas).forEach(function(id) {
+      var pagina = paginas[id];
+      var el = document.getElementById(id);
+      el.href = BASE + '?pagina=' + pagina + tk;
+      el.target = '_top';
+      var visivel = !permitidas || permitidas.indexOf(pagina) >= 0;
+      el.style.display = visivel ? '' : 'none';
+      if (visivel) paginasVisiveis.push(BASE + '?pagina=' + pagina + tk);
+    });
+
+    var elAdmin = document.getElementById('linkAdmin');
+    if (ehAdmin) {
+      elAdmin.href = BASE + '?pagina=admin' + tk;
+      elAdmin.target = '_top';
+      elAdmin.style.display = 'flex';
+      paginasVisiveis.push(BASE + '?pagina=admin' + tk);
+    } else {
+      elAdmin.style.display = 'none';
+    }
+
+    // Se apenas 1 página permitida, redirecionar direto sem mostrar painel
+    if (paginasVisiveis.length === 1) {
+      window.location.replace(paginasVisiveis[0]);
+      return;
+    }
+
+    mostrarPainel('painelEscolha');
+  }
+
+  function fazerLogoutEscolha() {
+    localStorage.removeItem('sm_token');
+    localStorage.removeItem('sm_usuario');
+    sessionStorage.removeItem('sm_token');
+    sessionStorage.removeItem('sm_usuario');
+    mostrarPainel('painelLogin');
+    document.getElementById('inputEmail').value = '';
+    document.getElementById('inputSenha').value = '';
+    document.getElementById('btnEntrar').textContent = 'Entrar';
+  }
+
+  /**
+   * Navega o sistema após autenticação.
+   * Usa window.location.replace para navegar o próprio iframe — não requer
+   * ativação do usuário (ao contrário de target="_top" em callbacks assíncronos).
+   */
+  function _navegarSistema(url) {
+    window.location.replace(url);
   }
 </script>
 </body>
