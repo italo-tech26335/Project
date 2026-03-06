@@ -88,6 +88,10 @@
           <i class="fas fa-folder-plus"></i>
           <span>Novo Projeto</span>
         </button>
+        <button class="btn-header" id="btnRelatorio" onclick="abrirModalRelatorio()" title="Gerar relatório de projetos">
+          <i class="fas fa-chart-bar"></i>
+          <span>Relatório</span>
+        </button>
         <button class="btn-header btn-painel-toggle" id="btnToggleChat" onclick="toggleChat()">
           <i class="fas fa-columns"></i>
           <span>Painel</span>
@@ -496,6 +500,7 @@
               <option value="Em Andamento">Em Andamento</option>
               <option value="Aguardando Setor">Aguardando Setor</option>
               <option value="Concluída">Concluída</option>
+              <option value="Suspenso">Suspenso</option>
             </select>
           </div>
         </div>
@@ -566,6 +571,16 @@
             <option value="">Selecione...</option>
           </select>
           <small class="campo-hint">Departamento responsável pelo projeto</small>
+        </div>
+
+        <div class="campo-grupo">
+          <label>Status Inicial</label>
+          <select id="novoProjetoStatus">
+            <option value="A Fazer">A Fazer</option>
+            <option value="Em Andamento">Em Andamento</option>
+            <option value="Aguardando Setor">Aguardando Setor</option>
+            <option value="Suspenso">Suspenso</option>
+          </select>
         </div>
 
         <div class="campo-row">
@@ -802,6 +817,121 @@
       <div class="modal-footer">
         <button class="btn-acao" onclick="fecharModalMensagemCompleta()">Fechar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL RELATÓRIO DE PROJETOS ==================== -->
+  <div id="modalRelatorio" class="modal-overlay">
+    <div class="modal-content modal-relatorio-content">
+
+      <div class="modal-header">
+        <h3><i class="fas fa-chart-bar"></i> Relatório de Projetos</h3>
+        <button class="btn-fechar-modal" onclick="fecharModal('modalRelatorio')"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="modal-body" style="padding:0;">
+
+        <!-- Barra de ações rápidas -->
+        <div class="rel-toolbar">
+          <div class="rel-toolbar-info">
+            <i class="fas fa-info-circle" style="color:var(--cor-primaria);"></i>
+            <span id="relResumoSelecao">Selecione os filtros e projetos para incluir no relatório</span>
+          </div>
+          <button class="rel-btn-link" onclick="_relToggleAllProjetos(true)"><i class="fas fa-check-square"></i> Todos</button>
+          <button class="rel-btn-link" onclick="_relToggleAllProjetos(false)"><i class="fas fa-square"></i> Nenhum</button>
+        </div>
+
+        <div class="relatorio-grid">
+
+          <!-- ── COL ESQUERDA: Filtros ── -->
+          <div class="relatorio-col-filtros">
+
+            <div class="rel-secao">
+              <div class="rel-secao-titulo"><i class="fas fa-building"></i> Setores</div>
+              <div id="relFiltroSetores" class="rel-chips-group">
+                <span class="rel-chip ativo" onclick="_relToggleSetor('__todos__', this)">Todos</span>
+              </div>
+            </div>
+
+            <div class="rel-secao">
+              <div class="rel-secao-titulo">
+                <span><i class="fas fa-users"></i> Responsáveis</span>
+                <button class="rel-btn-link-sm" onclick="_relToggleAllResponsaveis()">Todos/Nenhum</button>
+              </div>
+              <div id="relFiltroResponsaveis" class="rel-check-list" style="max-height:150px;"></div>
+            </div>
+
+            <div class="rel-secao" style="border-bottom:none;margin-bottom:0;">
+              <div class="rel-secao-titulo"><i class="fas fa-sliders-h"></i> Conteúdo</div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label class="rel-toggle-item">
+                  <input type="checkbox" id="relOpcApenasAtivos" checked>
+                  <span>Só atividades pendentes</span>
+                </label>
+                <label class="rel-toggle-item">
+                  <input type="checkbox" id="relOpcDescricao" checked>
+                  <span>Descrição dos projetos</span>
+                </label>
+                <label class="rel-toggle-item">
+                  <input type="checkbox" id="relOpcAtividades" checked>
+                  <span>Tabela de atividades</span>
+                </label>
+                <label class="rel-toggle-item">
+                  <input type="checkbox" id="relOpcPrioridade" checked>
+                  <span>Score de prioridade</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ── COL DIREITA: Projetos + Email ── -->
+          <div class="relatorio-col-opcoes">
+
+            <!-- Projetos -->
+            <div class="rel-secao">
+              <div class="rel-secao-titulo">
+                <span><i class="fas fa-folder-open"></i> Projetos incluídos <span id="relContadorProjetos" class="rel-contador">0</span></span>
+              </div>
+              <div id="relListaProjetos" class="rel-check-list rel-projetos-list"></div>
+            </div>
+
+            <!-- Destinatários -->
+            <div class="rel-secao">
+              <div class="rel-secao-titulo"><i class="fas fa-paper-plane"></i> Enviar para</div>
+              <div id="relDestinatarios" class="rel-destinatarios-grid"></div>
+              <input type="text" id="relEmailsCC" placeholder="Emails em cópia (separados por vírgula)" style="margin-top:8px;font-size:0.8rem;">
+            </div>
+
+            <!-- Assunto e mensagem -->
+            <div class="rel-secao" style="border-bottom:none;margin-bottom:0;">
+              <div class="rel-secao-titulo"><i class="fas fa-envelope-open-text"></i> Mensagem</div>
+              <input type="text" id="relAssunto" placeholder="Assunto do email" style="font-size:0.8rem;margin-bottom:6px;">
+              <textarea id="relMensagem" rows="2" placeholder="Mensagem de abertura opcional (aparece no topo do email)" style="font-size:0.8rem;resize:none;"></textarea>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Área de preview (expande abaixo do grid) -->
+        <div id="relPreviewArea" class="rel-preview-area" style="display:none;"></div>
+
+      </div>
+
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button class="btn-acao btn-secundario" onclick="fecharModal('modalRelatorio')">
+          <i class="fas fa-times"></i> Fechar
+        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-acao btn-secundario" onclick="_relGerarPreview()" id="btnRelPreview">
+            <i class="fas fa-eye"></i> Pré-visualizar
+          </button>
+          <button class="btn-acao" onclick="_relEnviarEmail()" id="btnRelEnviar">
+            <i class="fas fa-paper-plane"></i> Enviar por Email
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 

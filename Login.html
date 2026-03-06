@@ -516,7 +516,9 @@
     var nome = (usuario && usuario.nome) ? usuario.nome.split(' ')[0] : 'usuário';
     document.getElementById('escolhaNome').textContent = nome;
 
-    var BASE = 'https://script.google.com/macros/s/AKfycbwJB8g7DHPjcCX4Bl2rclQze_TpOyZ0PB9sEFgHDNLdzCihG8AjHPXWvsOsoqvu1bh7/exec';
+    var BASE = (typeof BASE_URL !== 'undefined' && BASE_URL)
+      ? BASE_URL
+      : (window.location.origin + window.location.pathname);
     var tk = '&token=' + encodeURIComponent(token);
 
     var ehAdmin = usuario && usuario.perfil === 'admin';

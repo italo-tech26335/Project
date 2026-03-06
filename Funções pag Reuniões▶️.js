@@ -3107,6 +3107,24 @@ function obterReunioesCatalogadas(token) {
   };
 
   try {
+    const colunas = (typeof COLUNAS_REUNIOES !== 'undefined') ? COLUNAS_REUNIOES : {
+      ID: 0, TITULO: 1, DATA_INICIO: 2, DATA_FIM: 3, DURACAO: 4, STATUS: 5,
+      PARTICIPANTES: 6, TRANSCRICAO: 7, ATA: 8, SUGESTOES_IA: 9, LINK_AUDIO: 10,
+      LINK_ATA: 11, EMAILS_ENVIADOS: 12, PROJETOS_IMPACTADOS: 13, ETAPAS_IMPACTADAS: 14,
+      DEPARTAMENTO_ID: 15, ATA_EXECUTIVA: 16, ATA_DETALHADA: 17, ATA_RESPONSAVEL: 18, ATA_ALINHAMENTO: 19
+    };
+    const statusReuniao = (typeof STATUS_REUNIAO !== 'undefined') ? STATUS_REUNIAO : {
+      AGUARDANDO: 'Aguardando Processamento'
+    };
+    const serializarValorData = function(valor) {
+      if (valor === null || valor === undefined || valor === '') return '';
+      if (Object.prototype.toString.call(valor) === '[object Date]') {
+        const timestamp = valor.getTime();
+        return Number.isFinite(timestamp) ? valor.toISOString() : '';
+      }
+      return valor;
+    };
+
     const sessao = token ? _obterSessao(token) : null;
     log('INFO', 'Sessão: ' + (sessao ? sessao.email + ' | perfil=' + sessao.perfil : 'null (sem token)'));
 
@@ -3138,62 +3156,80 @@ function obterReunioesCatalogadas(token) {
     const dados = aba.getDataRange().getValues();
     log('INFO', 'Total de linhas na aba Reuniões (incl. cabeçalho): ' + dados.length);
 
+    // Log de amostra das primeiras linhas para diagnóstico
+    if (dados.length > 1) {
+      var amostra = [];
+      for (var ia = 1; ia <= Math.min(3, dados.length - 1); ia++) {
+        amostra.push('ID="' + (dados[ia][colunas.ID] || '') + '" STATUS="' + (dados[ia][colunas.STATUS] || '') + '" DEPT="' + (dados[ia][colunas.DEPARTAMENTO_ID] || '') + '"');
+      }
+      log('INFO', 'Amostra primeiras linhas: ' + amostra.join(' | '));
+    }
+
     const reunioesTodas = [];
     let cntSemId = 0, cntAguardando = 0, cntBloqueadoDepto = 0, cntPassou = 0;
 
     for (let i = dados.length - 1; i >= 1; i--) {
-      const idCelula = dados[i][COLUNAS_REUNIOES.ID];
-      if (!idCelula || idCelula.toString().trim() === '') { cntSemId++; continue; }
+      let idStr = '';
+      try {
+        const idCelula = dados[i][colunas.ID];
+        if (!idCelula || idCelula.toString().trim() === '') { cntSemId++; continue; }
 
-      const idStr = idCelula.toString().trim();
+        idStr = idCelula.toString().trim();
 
-      // Excluir áudios aguardando processamento (aparecem na seção própria)
-      const statusCelula = dados[i][COLUNAS_REUNIOES.STATUS] ? dados[i][COLUNAS_REUNIOES.STATUS].toString() : '';
-      if (statusCelula === STATUS_REUNIAO.AGUARDANDO) { cntAguardando++; continue; }
+        // Excluir áudios aguardando processamento (aparecem na seção própria)
+        const statusCelula = dados[i][colunas.STATUS] ? dados[i][colunas.STATUS].toString() : '';
+        if (statusCelula === statusReuniao.AGUARDANDO) { cntAguardando++; continue; }
 
-      // Filtro de departamento: usa dados frescos da planilha (não sessão desatualizada)
-      if (depsUsuario !== null && depsUsuario.length > 0) {
-        const depReuniao = (dados[i][COLUNAS_REUNIOES.DEPARTAMENTO_ID] || '').toString().trim();
-        // Reuniões sem departamento são visíveis a todos (retrocompat)
-        if (depReuniao && !depsUsuario.includes(depReuniao)) {
-          log('INFO', 'Reunião ID=' + idStr + ' BLOQUEADA: depReuniao="' + depReuniao +
-              '" | tipo=' + (typeof dados[i][COLUNAS_REUNIOES.DEPARTAMENTO_ID]) +
-              ' | depsUsuario=' + JSON.stringify(depsUsuario) +
-              ' | includes()=' + depsUsuario.includes(depReuniao));
-          cntBloqueadoDepto++;
-          continue;
+        // Filtro de departamento: resolve ambos os lados para IDs canônicos antes de comparar
+        if (depsUsuario !== null && depsUsuario.length > 0) {
+          var depReuniao = (dados[i][colunas.DEPARTAMENTO_ID] || '').toString().trim();
+          // Reuniões sem departamento são visíveis a todos (retrocompat)
+          if (depReuniao) {
+            try {
+              var depReuniaoResolvido = (typeof _resolverIdsDepartamento === 'function')
+                ? ((_resolverIdsDepartamento([depReuniao])[0]) || depReuniao).toString().trim()
+                : depReuniao;
+              if (!depsUsuario.includes(depReuniaoResolvido) && !depsUsuario.includes(depReuniao)) {
+                cntBloqueadoDepto++;
+                continue;
+              }
+            } catch (eFiltro) {
+              log('ALERTA', 'Erro ao filtrar depto da reunião ' + idStr + ': ' + eFiltro.message + ' — permitindo acesso');
+            }
+          }
         }
-        log('INFO', 'Reunião ID=' + idStr + ' PASSOU filtro depto: depReuniao="' + depReuniao + '" status="' + statusCelula + '"');
+
+        const ataTexto = dados[i][colunas.ATA] ? dados[i][colunas.ATA].toString().trim() : '';
+        const transcricaoTexto = dados[i][colunas.TRANSCRICAO] ? dados[i][colunas.TRANSCRICAO].toString().trim() : '';
+        const projetoId = dados[i][colunas.PROJETOS_IMPACTADOS]
+          ? dados[i][colunas.PROJETOS_IMPACTADOS].toString().trim()
+          : '';
+
+        // Detectar estilos de ata gerados (colunas 16-19)
+        const estilosGerados = [];
+        if ((dados[i][colunas.ATA_EXECUTIVA]   || '').toString().trim().length > 10) estilosGerados.push('executiva');
+        if ((dados[i][colunas.ATA_DETALHADA]   || '').toString().trim().length > 10) estilosGerados.push('detalhada');
+        if ((dados[i][colunas.ATA_RESPONSAVEL] || '').toString().trim().length > 10) estilosGerados.push('por_responsavel');
+        if ((dados[i][colunas.ATA_ALINHAMENTO] || '').toString().trim().length > 10) estilosGerados.push('alinhamento');
+
+        cntPassou++;
+        reunioesTodas.push({
+          id: idStr,
+          titulo: dados[i][colunas.TITULO] ? dados[i][colunas.TITULO].toString() : '',
+          dataInicio: serializarValorData(dados[i][colunas.DATA_INICIO]),
+          duracao: dados[i][colunas.DURACAO],
+          status: statusCelula,
+          participantes: dados[i][colunas.PARTICIPANTES] ? dados[i][colunas.PARTICIPANTES].toString() : '',
+          linkAudio: dados[i][colunas.LINK_AUDIO] ? dados[i][colunas.LINK_AUDIO].toString() : '',
+          emailsEnviados: dados[i][colunas.EMAILS_ENVIADOS] ? dados[i][colunas.EMAILS_ENVIADOS].toString() : '',
+          temAta: ataTexto.length > 10 || estilosGerados.length > 0,
+          temTranscricao: transcricaoTexto.length > 10,
+          projetoId: projetoId,
+          estilosGerados: estilosGerados
+        });
+      } catch (eLinha) {
+        log('ERRO', 'Falha ao processar linha ' + (i + 1) + ' da aba Reuniões' + (idStr ? ' (ID=' + idStr + ')' : '') + ': ' + eLinha.message);
       }
-
-      const ataTexto = dados[i][COLUNAS_REUNIOES.ATA] ? dados[i][COLUNAS_REUNIOES.ATA].toString().trim() : '';
-      const transcricaoTexto = dados[i][COLUNAS_REUNIOES.TRANSCRICAO] ? dados[i][COLUNAS_REUNIOES.TRANSCRICAO].toString().trim() : '';
-      const projetoId = dados[i][COLUNAS_REUNIOES.PROJETOS_IMPACTADOS]
-        ? dados[i][COLUNAS_REUNIOES.PROJETOS_IMPACTADOS].toString().trim()
-        : '';
-
-      // Detectar estilos de ata gerados (colunas 16-19)
-      const estilosGerados = [];
-      if ((dados[i][COLUNAS_REUNIOES.ATA_EXECUTIVA]   || '').toString().trim().length > 10) estilosGerados.push('executiva');
-      if ((dados[i][COLUNAS_REUNIOES.ATA_DETALHADA]   || '').toString().trim().length > 10) estilosGerados.push('detalhada');
-      if ((dados[i][COLUNAS_REUNIOES.ATA_RESPONSAVEL] || '').toString().trim().length > 10) estilosGerados.push('por_responsavel');
-      if ((dados[i][COLUNAS_REUNIOES.ATA_ALINHAMENTO] || '').toString().trim().length > 10) estilosGerados.push('alinhamento');
-
-      cntPassou++;
-      reunioesTodas.push({
-        id: idCelula.toString().trim(),
-        titulo: dados[i][COLUNAS_REUNIOES.TITULO] ? dados[i][COLUNAS_REUNIOES.TITULO].toString() : '',
-        dataInicio: dados[i][COLUNAS_REUNIOES.DATA_INICIO],
-        duracao: dados[i][COLUNAS_REUNIOES.DURACAO],
-        status: statusCelula,
-        participantes: dados[i][COLUNAS_REUNIOES.PARTICIPANTES] ? dados[i][COLUNAS_REUNIOES.PARTICIPANTES].toString() : '',
-        linkAudio: dados[i][COLUNAS_REUNIOES.LINK_AUDIO] ? dados[i][COLUNAS_REUNIOES.LINK_AUDIO].toString() : '',
-        emailsEnviados: dados[i][COLUNAS_REUNIOES.EMAILS_ENVIADOS] ? dados[i][COLUNAS_REUNIOES.EMAILS_ENVIADOS].toString() : '',
-        temAta: estilosGerados.length > 0,
-        temTranscricao: transcricaoTexto.length > 10,
-        projetoId: projetoId,
-        estilosGerados: estilosGerados
-      });
     }
 
     log('INFO', '── RESUMO FILTROS ──');
@@ -3273,12 +3309,19 @@ function obterReunioesCatalogadas(token) {
     }
 
     log('INFO', 'porProjeto: ' + Object.keys(porProjeto).length + ' projetos | semCatalogo: ' + semCatalogo.length + ' reuniões');
+    // Log de reuniões sem projeto (sem catalogar) — identifica projetoId inválido
+    reunioesTodas.forEach(function(r) {
+      if (r.projetoId && !mapaProjetoNome[r.projetoId]) {
+        log('ALERTA', 'Reunião ID=' + r.id + ' tem projetoId="' + r.projetoId + '" mas projeto NÃO encontrado — vai para "Não Catalogadas"');
+      }
+    });
     return { sucesso: true, porProjeto: porProjeto, semCatalogo: semCatalogo, logs: logs };
 
   } catch (e) {
     Logger.log('ERRO obterReunioesCatalogadas: ' + e.toString());
-    logs.push({ tipo: 'ERRO', msg: 'Exceção: ' + e.message + ' | ' + e.stack });
-    return { sucesso: false, mensagem: e.message, porProjeto: {}, semCatalogo: [], logs: logs };
+    const msgErro = (e && (e.message || e.toString())) ? (e.message || e.toString()) : 'Erro desconhecido em obterReunioesCatalogadas';
+    logs.push({ tipo: 'ERRO', msg: 'Exceção: ' + msgErro + ' | ' + (e && e.stack ? e.stack : 'sem stack') });
+    return { sucesso: false, mensagem: msgErro, porProjeto: {}, semCatalogo: [], logs: logs };
   }
 }
 
@@ -4130,6 +4173,58 @@ function listarAudiosNaoProcessados(token) {
 }
 
 /**
+ * Exclui um áudio pendente: move o arquivo do Drive para lixeira e remove a linha
+ * da planilha (ou marca como excluído). Só funciona em reuniões com status AGUARDANDO.
+ */
+function excluirAudioPendente(reuniaoId, token) {
+  try {
+    var sessao = _obterSessao(token);
+    if (!sessao) return { sucesso: false, mensagem: 'Sessão inválida.' };
+
+    var aba = obterAba(NOME_ABA_REUNIOES);
+    if (!aba) return { sucesso: false, mensagem: 'Aba de reuniões não encontrada.' };
+
+    var dados    = aba.getDataRange().getValues();
+    var linhaNum = -1;
+    var linkAudio = '';
+
+    for (var i = 1; i < dados.length; i++) {
+      var rowId  = (dados[i][COLUNAS_REUNIOES.ID]     || '').toString().trim();
+      var status = (dados[i][COLUNAS_REUNIOES.STATUS] || '').toString().trim();
+      if (rowId === reuniaoId) {
+        if (status !== STATUS_REUNIAO.AGUARDANDO) {
+          return { sucesso: false, mensagem: 'Reunião não está em status "Aguardando Processamento".' };
+        }
+        linhaNum  = i + 1; // índice 1-based para GAS
+        linkAudio = (dados[i][COLUNAS_REUNIOES.LINK_AUDIO] || '').toString().trim();
+        break;
+      }
+    }
+
+    if (linhaNum < 0) return { sucesso: false, mensagem: 'Reunião não encontrada.' };
+
+    // Move o arquivo do Drive para a lixeira
+    if (linkAudio) {
+      try {
+        var m = linkAudio.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (m) DriveApp.getFileById(m[1]).setTrashed(true);
+      } catch (eDrive) {
+        Logger.log('AVISO excluirAudioPendente: erro ao mover para lixeira: ' + eDrive.message);
+        // Prossegue para remover da planilha mesmo assim
+      }
+    }
+
+    // Remove a linha da planilha
+    aba.deleteRow(linhaNum);
+
+    return { sucesso: true };
+  } catch (e) {
+    Logger.log('ERRO excluirAudioPendente: ' + e.toString());
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+/**
  * Processa um áudio previamente salvo: executa transcrição, gera estilos de ata
  * selecionados e opcionalmente gera relatório. Atualiza a linha existente na planilha.
  * Parâmetros de dadosProcessamento:
@@ -4438,7 +4533,7 @@ function gerarAtaEstiloParaReuniao(token, reuniaoId, estilo, instrucaoExtra) {
     const sessao = _obterSessao(token);
     if (!sessao) return { sucesso: false, mensagem: 'Sessão inválida.', logs };
 
-    const estilosValidos = ['executiva', 'detalhada', 'por_responsavel', 'alinhamento'];
+    const estilosValidos = Object.keys(CONFIG_PROMPTS_REUNIAO.ESTILOS);
     if (!estilo || !estilosValidos.includes(estilo)) {
       return { sucesso: false, mensagem: 'Estilo inválido: ' + estilo, logs };
     }
@@ -4618,8 +4713,8 @@ function obterPreviewPromptAta(token, opcoes) {
     if (!_obterSessao(token)) return { sucesso: false, mensagem: 'Sessao invalida.' };
 
     opcoes = opcoes || {};
-    const estilo = (opcoes.estilo || 'executiva').toString();
-    const estilosValidos = ['executiva', 'detalhada', 'por_responsavel', 'alinhamento'];
+    const estilo = (opcoes.estilo || 'decisoes').toString();
+    const estilosValidos = Object.keys(CONFIG_PROMPTS_REUNIAO.ESTILOS);
     if (!estilosValidos.includes(estilo)) {
       return { sucesso: false, mensagem: 'Estilo invalido: ' + estilo };
     }

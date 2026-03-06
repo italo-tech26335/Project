@@ -1,6 +1,16 @@
 const ID_PLANILHA = '1Bmy4gcbF13mxRYBTHhu3Y82jMLg3QUEDqg_sCyx5X9M';
 const URL_WEBAPP  = 'https://script.google.com/macros/s/AKfycbwJB8g7DHPjcCX4Bl2rclQze_TpOyZ0PB9sEFgHDNLdzCihG8AjHPXWvsOsoqvu1bh7/exec';
 
+function obterUrlWebAppAtual() {
+  try {
+    const url = ScriptApp.getService().getUrl();
+    if (url) return url;
+  } catch (e) {
+    Logger.log('AVISO obterUrlWebAppAtual: ' + e.toString());
+  }
+  return URL_WEBAPP;
+}
+
 /** =====================================================================
  *                          ABAS DA PLANILHAss
 =========================================================================*/
@@ -207,7 +217,7 @@ function doGet(e) {
       tmpl.sessaoToken   = token;
       tmpl.usuarioNome   = sessao.nome;
       tmpl.usuarioPerfil = sessao.perfil;
-      tmpl.baseUrl       = URL_WEBAPP;
+    tmpl.baseUrl       = obterUrlWebAppAtual();
       return tmpl.evaluate()
         .setTitle('Smart Meeting - Painel Admin')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -253,7 +263,7 @@ function doGet(e) {
     tmpl.usuarioNome       = sessao.nome;
     tmpl.usuarioPerfil     = sessao.perfil;
     tmpl.modoAdmin         = (sessao.perfil === 'admin');
-    tmpl.baseUrl           = URL_WEBAPP;
+    tmpl.baseUrl           = obterUrlWebAppAtual();
     // [] = sem restrição (admin sempre passa, usuário sem limitação também)
     tmpl.paginasPermitidas = JSON.stringify(
       sessao.perfil === 'admin' ? [] : (sessao.paginasPermitidas || [])
@@ -274,7 +284,7 @@ function _servirLogin(mensagemErro) {
   const tmpl = HtmlService.createTemplateFromFile('Login');
   tmpl.mensagemErroUrl = mensagemErro || '';
   tmpl.tokenReset = '';
-  tmpl.baseUrl = URL_WEBAPP;
+  tmpl.baseUrl = obterUrlWebAppAtual();
   return tmpl.evaluate()
     .setTitle('Smart Meeting - Login')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -285,7 +295,7 @@ function _servirReset(rt) {
   const tmpl = HtmlService.createTemplateFromFile('Login');
   tmpl.mensagemErroUrl = '';
   tmpl.tokenReset = rt || '';
-  tmpl.baseUrl = URL_WEBAPP;
+  tmpl.baseUrl = obterUrlWebAppAtual();
   return tmpl.evaluate()
     .setTitle('Smart Meeting - Redefinir Senha')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -550,7 +560,7 @@ function inicializarPermissoes() {
   } catch(e) { log.push('❌ Cache: ' + e.message); }
 
   // URL da implantação
-  log.push('✅ URL WebApp: ' + URL_WEBAPP);
+  log.push('✅ URL WebApp: ' + obterUrlWebAppAtual());
 
   const resumo = log.join('\n');
   Logger.log(resumo);
@@ -579,22 +589,22 @@ function gravarTimestamp(aba, linhaIndex, colCriacao, colModificacao, ehNovo) {
 }
 
 function obterUrlWebApp() {
-  return URL_WEBAPP;
+  return obterUrlWebAppAtual();
 }
 
 // Alias usado por PaginaReunioes para configurar links de navegação
 function obterUrlBaseWebApp() {
-  return URL_WEBAPP;
+  return obterUrlWebAppAtual();
 }
 
 function abrirPaginaReunioes() {
-  const url = URL_WEBAPP;
+  const url = obterUrlWebAppAtual();
   const html = `<script>window.open('${url}', '_blank');google.script.host.close();</script>`;
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html), 'Abrindo...');
 }
 
 function abrirPaginaProjetos() {
-  const url = URL_WEBAPP + '?pagina=projetos';
+  const url = obterUrlWebAppAtual() + '?pagina=projetos';
   const html = `<script>window.open('${url}', '_blank');google.script.host.close();</script>`;
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html), 'Abrindo...');
 }
