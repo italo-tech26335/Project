@@ -1,36 +1,36 @@
 <style id="tema-azul-styles">
 /* =====================================================================
- *  SMART MEETING - TEMA AZUL MODERNO
+ *  SMART MEETING - TEMA OCEANO AZUL (tons suaves)
  *  (Aplicado dinamicamente via JS — sobrescreve o tema Vintage Creme)
  * ===================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --cor-fundo:            #f0f4ff;
+  --cor-fundo:            #f4f7ff;
   --cor-fundo-card:       #ffffff;
-  --cor-fundo-quente:     #f7f9ff;
-  --cor-primaria:         #3b6fd4;
-  --cor-primaria-escura:  #2451a8;
-  --cor-primaria-clara:   #5a8ae0;
-  --cor-primaria-bg:      rgba(59, 111, 212, 0.08);
-  --cor-destaque:         #7c3aed;
-  --cor-destaque-bg:      rgba(124, 58, 237, 0.1);
+  --cor-fundo-quente:     #eef3ff;
+  --cor-primaria:         #4878d6;
+  --cor-primaria-escura:  #2c58b0;
+  --cor-primaria-clara:   #6a96e0;
+  --cor-primaria-bg:      rgba(72, 120, 214, 0.08);
+  --cor-destaque:         #6d52e0;
+  --cor-destaque-bg:      rgba(109, 82, 224, 0.09);
 
-  --cor-texto:            #1a2340;
-  --cor-texto-secundario: #5a6a8a;
-  --cor-borda:            #c8d4f0;
-  --cor-borda-clara:      #dce6f9;
+  --cor-texto:            #1e2c4a;
+  --cor-texto-secundario: #607090;
+  --cor-borda:            #ccd8f0;
+  --cor-borda-clara:      #dfe8fa;
 
-  --cor-sucesso:  #0e9f6e;
+  --cor-sucesso:  #1a9e78;
   --cor-aviso:    #d97706;
-  --cor-perigo:   #e02424;
-  --cor-info:     #1a56db;
-  --cor-aguardando: #7c3aed;
+  --cor-perigo:   #dd3333;
+  --cor-info:     #2860d8;
+  --cor-aguardando: #6d52e0;
 
-  --sombra:    0 1px 3px rgba(30, 60, 140, 0.08);
-  --sombra-lg: 0 4px 14px rgba(30, 60, 140, 0.12);
-  --sombra-xl: 0 8px 28px rgba(30, 60, 140, 0.15);
+  --sombra:    0 1px 4px rgba(30, 60, 140, 0.07);
+  --sombra-lg: 0 4px 16px rgba(30, 60, 140, 0.10);
+  --sombra-xl: 0 8px 28px rgba(30, 60, 140, 0.13);
   --raio:    7px;
   --raio-lg: 12px;
   --transicao: all 0.25s ease;
@@ -56,10 +56,10 @@ h1, h2, h3, h4, h5, h6,
   font-family: var(--font-titulo) !important;
 }
 
-/* ── Header azul ── */
+/* ── Header azul (tons suaves) ── */
 .header {
-  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%) !important;
-  border-bottom: 2px solid #7c3aed !important;
+  background: linear-gradient(135deg, #1a3476 0%, #2558d4 60%, #4a7ed8 100%) !important;
+  border-bottom: 2px solid rgba(109,82,224,0.6) !important;
 }
 
 
@@ -78,16 +78,16 @@ h1, h2, h3, h4, h5, h6,
 
 /* ── Hero do projeto no diagrama ── */
 .diagrama-proj-hero {
-  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 65%, #3b82f6 100%) !important;
+  background: linear-gradient(135deg, #1a3476 0%, #2558d4 65%, #4a7ed8 100%) !important;
 }
 
 /* ── Botão novo projeto ── */
 .btn-novo-projeto {
-  background: rgba(124, 58, 237, 0.3) !important;
-  border-color: rgba(124, 58, 237, 0.5) !important;
+  background: rgba(109, 82, 224, 0.22) !important;
+  border-color: rgba(109, 82, 224, 0.45) !important;
 }
 .btn-novo-projeto:hover {
-  background: rgba(124, 58, 237, 0.5) !important;
+  background: rgba(109, 82, 224, 0.38) !important;
 }
 
 /* ── Gráfico donut: centro ── */
@@ -95,7 +95,7 @@ h1, h2, h3, h4, h5, h6,
 
 /* ── Barra de progresso do projeto ── */
 .diagrama-progresso-barra-fill {
-  background: #3b82f6 !important;
+  background: #4878d6 !important;
 }
 
 /* ── Sidebar aba ativa ── */
@@ -118,7 +118,7 @@ h1, h2, h3, h4, h5, h6,
 /* ── Avatars de responsáveis ── */
 .resp-avatar,
 .atividade-resp-avatar {
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%) !important;
+  background: linear-gradient(135deg, #4878d6 0%, #2558d4 100%) !important;
 }
 
 /* ── Indicador opcao selecionado ── */
@@ -130,24 +130,24 @@ h1, h2, h3, h4, h5, h6,
 
 /* ── Botão modo foco ── */
 .modal-modo-foco-header {
-  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+  background: linear-gradient(135deg, #1a3476 0%, #2558d4 100%) !important;
 }
 
 /* ── Scrollbars ── */
 ::-webkit-scrollbar-thumb {
-  background: #5a8ae0 !important;
+  background: #7ba0e4 !important;
 }
 
 /* ── Toast ── */
-.toast.sucesso { background: linear-gradient(135deg, #0e9f6e, #057857) !important; }
-.toast.info    { background: linear-gradient(135deg, #1a56db, #1e3a8a) !important; }
+.toast.sucesso { background: linear-gradient(135deg, #1a9e78, #0f7050) !important; }
+.toast.info    { background: linear-gradient(135deg, #2860d8, #1a3476) !important; }
 
 /* ── Btn acao ── */
 .btn-acao {
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%) !important;
+  background: linear-gradient(135deg, #4878d6 0%, #2558d4 100%) !important;
 }
 .btn-acao:hover {
-  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(72, 120, 214, 0.30) !important;
 }
 .btn-secundario {
   border-color: var(--cor-primaria) !important;
@@ -159,28 +159,43 @@ h1, h2, h3, h4, h5, h6,
 
 /* ── Inputs focus ── */
 input:focus, select:focus, textarea:focus {
-  border-color: #2563eb !important;
-  box-shadow: 0 0 0 2px rgba(59, 111, 212, 0.15) !important;
+  border-color: #4878d6 !important;
+  box-shadow: 0 0 0 2px rgba(72, 120, 214, 0.13) !important;
 }
 
 /* ── Número da atividade ── */
 .atividade-numero, .projeto-card-ordem {
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%) !important;
+  background: linear-gradient(135deg, #4878d6 0%, #2558d4 100%) !important;
 }
 
 /* ── Link documentos ── */
 .btn-link-documentos {
-  background: rgba(124, 58, 237, 0.1) !important;
-  border-color: rgba(124, 58, 237, 0.35) !important;
-  color: #7c3aed !important;
+  background: rgba(109, 82, 224, 0.09) !important;
+  border-color: rgba(109, 82, 224, 0.30) !important;
+  color: #6d52e0 !important;
 }
 .btn-link-documentos:hover {
-  background: #7c3aed !important;
-  color: #fff !important;
+  background: rgba(109, 82, 224, 0.18) !important;
+  color: #8a74e8 !important;
 }
 
 /* ── Rodapé modal ── */
 .modal-footer, .email-footer { background: #f7f9ff !important; }
+
+/* ── Btn ocultar concluidas ── */
+.btn-ocultar-concluidas {
+  background: rgba(72,120,214,0.06) !important;
+  border-color: rgba(72,120,214,0.25) !important;
+  color: #607090 !important;
+}
+.btn-ocultar-concluidas:hover {
+  background: rgba(72,120,214,0.12) !important;
+}
+.btn-ocultar-concluidas.ativo {
+  background: rgba(26,158,120,0.12) !important;
+  color: #1a9e78 !important;
+  border-color: rgba(26,158,120,0.35) !important;
+}
 
 /* ── Setor chips ── */
 .setor-chip.ativo {

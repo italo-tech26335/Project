@@ -1,0 +1,341 @@
+<style id="tema-preto-styles">
+/* =====================================================================
+ *  SMART MEETING - TEMA BLACK NIGHT
+ *  (Aplicado dinamicamente via JS — sobrescreve o tema Vintage Creme)
+ * ===================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --cor-fundo:            #0f0f0f;
+  --cor-fundo-card:       #1a1a1a;
+  --cor-fundo-quente:     #141414;
+  --cor-primaria:         #e0b84a;
+  --cor-primaria-escura:  #b8962a;
+  --cor-primaria-clara:   #f0d080;
+  --cor-primaria-bg:      rgba(224,184,74,0.10);
+  --cor-destaque:         #8b7cf6;
+  --cor-destaque-bg:      rgba(139,124,246,0.12);
+
+  --cor-texto:            #e0e0e0;
+  --cor-texto-secundario: #8a8a8a;
+  --cor-borda:            #2e2e2e;
+  --cor-borda-clara:      #242424;
+
+  --cor-sucesso:  #3d9e6c;
+  --cor-aviso:    #d4882a;
+  --cor-perigo:   #c94444;
+  --cor-info:     #5578c8;
+  --cor-aguardando: #8b7cf6;
+
+  --sombra:    0 1px 3px rgba(0,0,0,0.50);
+  --sombra-lg: 0 4px 14px rgba(0,0,0,0.65);
+  --sombra-xl: 0 8px 28px rgba(0,0,0,0.80);
+  --raio:    7px;
+  --raio-lg: 12px;
+  --transicao: all 0.25s ease;
+
+  --font-titulo: 'Nunito', 'Segoe UI', sans-serif;
+  --font-corpo:  'Inter', 'Segoe UI', sans-serif;
+}
+
+/* ── Reset de fontes ── */
+body {
+  font-family: var(--font-corpo) !important;
+  background: var(--cor-fundo) !important;
+  color: var(--cor-texto) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.loading-title,
+.dashboard-titulo h2,
+.coluna-header h3,
+.grafico-header h4,
+.modal-header h3,
+.diagrama-proj-hero-nome,
+.secao-modal-titulo {
+  font-family: var(--font-titulo) !important;
+  color: var(--cor-texto) !important;
+}
+
+/* ── Header black/gold ── */
+.header {
+  background: linear-gradient(135deg, #0a0a0a 0%, #141414 60%, #1a1a1a 100%) !important;
+  border-bottom: 2px solid rgba(224,184,74,0.35) !important;
+}
+
+/* ── Cards e superfícies ── */
+.bento-card,
+.card,
+.card-section,
+.modal-content,
+.projeto-card,
+.diagrama-etapa-card,
+.atividade-item,
+.metrica-card,
+.grafico-card,
+.indicador-opcao,
+.indicador-opcao-compact,
+.coluna-container {
+  background: var(--cor-fundo-card) !important;
+  border-color: var(--cor-borda) !important;
+}
+
+/* ── Gradientes dos headers de card ── */
+.projeto-card-header,
+.coluna-header,
+.dashboard-titulo,
+.modal-header,
+.chat-header,
+.sidebar-abas,
+.card-header,
+.grafico-header {
+  background: linear-gradient(135deg, #1e1e1e 0%, #1a1a1a 100%) !important;
+  border-color: var(--cor-borda) !important;
+}
+
+/* ── Hero do projeto ── */
+.diagrama-proj-hero {
+  background: linear-gradient(135deg, #111 0%, #1e1e1e 65%, #252525 100%) !important;
+  border-bottom: 1px solid rgba(224,184,74,0.2) !important;
+}
+.diagrama-proj-hero-nome { color: var(--cor-texto) !important; }
+
+/* ── Botão novo projeto ── */
+.btn-novo-projeto {
+  background: rgba(224,184,74,0.15) !important;
+  border-color: rgba(224,184,74,0.4) !important;
+  color: #f0d080 !important;
+}
+.btn-novo-projeto:hover {
+  background: rgba(224,184,74,0.28) !important;
+}
+
+/* ── Gráfico donut: centro ── */
+.grafico-centro-valor { color: var(--cor-texto) !important; }
+.grafico-centro-label { color: var(--cor-texto-secundario) !important; }
+
+/* ── Barra de progresso do projeto ── */
+.diagrama-progresso-barra-fill {
+  background: var(--cor-primaria) !important;
+}
+.diagrama-progresso-barra { background: #2a2a2a !important; }
+
+/* ── Sidebar aba ativa ── */
+.sidebar-aba.ativa::after {
+  background: var(--cor-primaria) !important;
+}
+.sidebar-aba.ativa { color: var(--cor-primaria) !important; }
+.sidebar-aba { color: var(--cor-texto-secundario) !important; }
+.sidebar-aba:hover { background: rgba(224,184,74,0.08) !important; color: var(--cor-texto) !important; }
+
+/* ── Métricas ── */
+.metrica-card { background: var(--cor-fundo-card) !important; border-color: var(--cor-borda) !important; }
+.metrica-card.total { border-left-color: var(--cor-primaria) !important; }
+.metrica-card.total .metrica-icone,
+.metrica-card.total .metrica-valor { color: var(--cor-primaria) !important; }
+.metrica-label { color: var(--cor-texto-secundario) !important; }
+.metrica-valor { color: var(--cor-texto) !important; }
+
+/* ── Chip ativo no header ── */
+.header-chip { color: rgba(224,184,74,0.75) !important; border-color: rgba(224,184,74,0.25) !important; }
+.header-chip.ativo {
+  background: rgba(224,184,74,0.15) !important;
+  color: #f0d080 !important;
+  border-color: rgba(224,184,74,0.5) !important;
+}
+
+/* ── Chips de setor/prioridade/status ── */
+.setor-chip, .status-chip, .prioridade-chip, .tipo-chip {
+  background: #222 !important;
+  border-color: var(--cor-borda) !important;
+  color: var(--cor-texto-secundario) !important;
+}
+.setor-chip.ativo, .status-chip.ativo, .prioridade-chip.ativo, .tipo-chip.ativo {
+  background: var(--cor-primaria) !important;
+  border-color: var(--cor-primaria) !important;
+  color: #111 !important;
+}
+
+/* ── Avatars de responsáveis ── */
+.resp-avatar,
+.atividade-resp-avatar {
+  background: linear-gradient(135deg, #333 0%, #222 100%) !important;
+  border-color: rgba(224,184,74,0.3) !important;
+  color: var(--cor-primaria) !important;
+}
+
+/* ── Responsáveis bento-card ── */
+.bento-resp {
+  background: linear-gradient(145deg, #161616 0%, #0f0f0f 100%) !important;
+}
+.resp-chip {
+  background: rgba(224,184,74,0.08) !important;
+  border-color: rgba(224,184,74,0.25) !important;
+  color: #f0d080 !important;
+}
+.resp-chip-label { color: var(--cor-texto-secundario) !important; }
+
+/* ── Indicador opcao selecionado ── */
+.indicador-opcao.selecionado,
+.indicador-opcao-compact.selecionado {
+  border-color: var(--cor-primaria) !important;
+  background: var(--cor-primaria-bg) !important;
+}
+
+/* ── Botão modo foco ── */
+.modal-modo-foco-header {
+  background: linear-gradient(135deg, #111 0%, #1e1e1e 100%) !important;
+  border-bottom: 1px solid rgba(224,184,74,0.2) !important;
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a !important;
+}
+::-webkit-scrollbar-track {
+  background: #1a1a1a !important;
+}
+
+/* ── Toast ── */
+.toast.sucesso { background: linear-gradient(135deg, #1e3d2a, #142a1e) !important; border-color: rgba(61,158,108,0.3) !important; }
+.toast.info    { background: linear-gradient(135deg, #1a1a2e, #111118) !important; border-color: rgba(85,120,200,0.3) !important; }
+.toast.erro    { background: linear-gradient(135deg, #2e1a1a, #1e1010) !important; }
+
+/* ── Botões ── */
+.btn-acao {
+  background: linear-gradient(135deg, #e0b84a 0%, #b8962a 100%) !important;
+  color: #111 !important;
+  border-color: transparent !important;
+}
+.btn-acao:hover {
+  box-shadow: 0 3px 10px rgba(224,184,74,0.35) !important;
+}
+.btn-secundario {
+  border-color: rgba(224,184,74,0.4) !important;
+  color: #f0d080 !important;
+  background: transparent !important;
+}
+.btn-secundario:hover {
+  background: rgba(224,184,74,0.10) !important;
+}
+.btn-fechar-modal {
+  background: #252525 !important;
+  color: var(--cor-texto-secundario) !important;
+  border-color: var(--cor-borda) !important;
+}
+.btn-fechar-modal:hover { background: #333 !important; }
+
+/* ── Inputs ── */
+input, select, textarea {
+  background: #1e1e1e !important;
+  border-color: var(--cor-borda) !important;
+  color: var(--cor-texto) !important;
+}
+input::placeholder, textarea::placeholder { color: #555 !important; }
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(224,184,74,0.5) !important;
+  box-shadow: 0 0 0 2px rgba(224,184,74,0.12) !important;
+}
+
+/* ── Número da atividade / ordem do projeto ── */
+.atividade-numero, .projeto-card-ordem {
+  background: linear-gradient(135deg, #333 0%, #222 100%) !important;
+  color: var(--cor-primaria) !important;
+}
+
+/* ── Link documentos ── */
+.btn-link-documentos {
+  background: rgba(139,124,246,0.10) !important;
+  border-color: rgba(139,124,246,0.30) !important;
+  color: #a899f8 !important;
+}
+.btn-link-documentos:hover {
+  background: rgba(139,124,246,0.22) !important;
+  color: #c4bcfc !important;
+}
+
+/* ── Rodapé modal ── */
+.modal-footer, .email-footer { background: #141414 !important; border-color: var(--cor-borda) !important; }
+.modal-body { background: var(--cor-fundo-card) !important; }
+
+/* ── Modal overlay ── */
+.modal-overlay { background: rgba(0,0,0,0.75) !important; }
+
+/* ── Barra de progresso inline ── */
+.progresso-barra-fill { background: var(--cor-primaria) !important; }
+.progresso-barra { background: #2a2a2a !important; }
+
+/* ── Atividades ── */
+.atividade-item { border-color: var(--cor-borda) !important; }
+.atividade-item:hover { background: #202020 !important; }
+.atividade-nome { color: var(--cor-texto) !important; }
+.atividade-meta { color: var(--cor-texto-secundario) !important; }
+
+/* ── Status badges ── */
+.status-badge { border-color: currentColor !important; }
+
+/* ── Separadores ── */
+.header-divisor-vertical { background: rgba(224,184,74,0.2) !important; }
+
+/* ── Botão de tema no header ── */
+.btn-tema-toggle {
+  background: rgba(224,184,74,0.12) !important;
+  border-color: rgba(224,184,74,0.3) !important;
+  color: #f0d080 !important;
+}
+.btn-tema-toggle:hover {
+  background: rgba(224,184,74,0.22) !important;
+}
+
+/* ── Coluna de etapas ── */
+.coluna-container { background: #141414 !important; border-color: var(--cor-borda) !important; }
+.coluna-header { border-bottom-color: var(--cor-borda) !important; }
+.coluna-header h3 { color: var(--cor-texto) !important; }
+
+/* ── Dropdown de opções ── */
+.dropdown-menu, .context-menu {
+  background: #1e1e1e !important;
+  border-color: var(--cor-borda) !important;
+  box-shadow: var(--sombra-xl) !important;
+}
+.dropdown-item:hover { background: #2a2a2a !important; }
+
+/* ── Badge de contagem ── */
+.badge-count {
+  background: rgba(224,184,74,0.15) !important;
+  color: #f0d080 !important;
+  border-color: rgba(224,184,74,0.3) !important;
+}
+
+/* ── Gráfico area ── */
+.grafico-wrapper { background: transparent !important; }
+
+/* ── Setor chip ativo ── */
+.setor-chip.ativo {
+  background: var(--cor-primaria) !important;
+  border-color: var(--cor-primaria) !important;
+  color: #111 !important;
+}
+
+/* ── Nav links ── */
+.nav-link-proj { color: rgba(224,184,74,0.65) !important; }
+.nav-link-proj.ativo { color: #f0d080 !important; border-bottom-color: #f0d080 !important; }
+.nav-link-proj:hover { color: #f0d080 !important; }
+
+/* ── Btn ocultar concluidas ── */
+.btn-ocultar-concluidas {
+  background: #222 !important;
+  color: var(--cor-texto-secundario) !important;
+  border-color: var(--cor-borda) !important;
+}
+.btn-ocultar-concluidas:hover { background: #2a2a2a !important; }
+.btn-ocultar-concluidas.ativo {
+  background: rgba(61,158,108,0.15) !important;
+  color: #5dc898 !important;
+  border-color: rgba(61,158,108,0.4) !important;
+}
+</style>

@@ -2623,12 +2623,14 @@ function calcularDuracaoProjetoHoras(dataInicioStr, dataFimStr) {
 
 /**
  * Salva a preferência de tema do usuário no servidor
- * @param {string} tema - 'cafe' ou 'azul'
+ * @param {string} tema - 'cafe', 'azul' ou 'preto'
  */
 function salvarPreferenciaTema(tema) {
   try {
+    var temasValidos = ['cafe', 'azul', 'preto'];
+    var temaFinal = temasValidos.indexOf(tema) >= 0 ? tema : 'cafe';
     var props = PropertiesService.getUserProperties();
-    props.setProperty('smartmeeting_tema', tema || 'cafe');
+    props.setProperty('smartmeeting_tema', temaFinal);
     return { sucesso: true };
   } catch (e) {
     Logger.log('ERRO salvarPreferenciaTema: ' + e.toString());
@@ -2638,12 +2640,14 @@ function salvarPreferenciaTema(tema) {
 
 /**
  * Obtém a preferência de tema do usuário
- * @returns {string} 'cafe' ou 'azul'
+ * @returns {string} 'cafe', 'azul' ou 'preto'
  */
 function obterPreferenciaTema() {
   try {
     var props = PropertiesService.getUserProperties();
-    return props.getProperty('smartmeeting_tema') || 'cafe';
+    var tema = props.getProperty('smartmeeting_tema') || 'cafe';
+    var temasValidos = ['cafe', 'azul', 'preto'];
+    return temasValidos.indexOf(tema) >= 0 ? tema : 'cafe';
   } catch (e) {
     Logger.log('ERRO obterPreferenciaTema: ' + e.toString());
     return 'cafe';
