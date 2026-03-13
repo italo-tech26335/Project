@@ -713,12 +713,22 @@ function salvarProjetoCompleto(dados, token) {
     const novoId = dados.id || gerarId();
     const linhaDados = [];
     for(let k in COLUNAS_PROJETOS) linhaDados[COLUNAS_PROJETOS[k]] = '';
-    
+
     if (linha > 0) {
       const dadosAntigos = valores[linha-1];
       for(let k = 0; k < dadosAntigos.length; k++) linhaDados[k] = dadosAntigos[k];
+    } else {
+      // Novo projeto: criar pasta no Drive automaticamente
+      try {
+        const pastaPrincipal = DriveApp.getFolderById(ID_PASTA_DRIVE_REUNIOES);
+        const novaSubPasta = pastaPrincipal.createFolder(dados.nome || 'Projeto ' + novoId);
+        dados.link = 'https://drive.google.com/drive/folders/' + novaSubPasta.getId();
+      } catch(e) {
+        Logger.log('AVISO: não foi possível criar pasta no Drive: ' + e.message);
+        dados.link = dados.link || '';
+      }
     }
-    
+
     linhaDados[COLUNAS_PROJETOS.ID]              = novoId;
     linhaDados[COLUNAS_PROJETOS.NOME]            = dados.nome;
     linhaDados[COLUNAS_PROJETOS.DESCRICAO]       = dados.descricao;
@@ -766,7 +776,7 @@ function salvarProjetoCompleto(dados, token) {
       aba.appendRow(linhaDados);
     }
     
-    return { sucesso: true, id: novoId };
+    return { sucesso: true, id: novoId, link: linhaDados[COLUNAS_PROJETOS.LINK] || '' };
   } catch (e) {
     Logger.log('ERRO salvarProjetoCompleto: ' + e.toString());
     return { sucesso: false, mensagem: e.message };
@@ -1504,8 +1514,8 @@ function enviarRelatorioProjetosEmail(token, opcoes) {
       return { sucesso: false, mensagem: 'Nenhum destinatário com email válido.' };
     }
 
-    // Monta HTML do relatório
-    const corpo = _montarCorpoRelatorioHTML(projetos, todasEtapas, todosResponsaveis, {
+    // Monta HTML do relatório — usa corpoHtml pré-gerado (personalizado) se fornecido
+    const corpo = opcoes.corpoHtml || _montarCorpoRelatorioHTML(projetos, todasEtapas, todosResponsaveis, {
       apenasAtivos, incluirDescricao, incluirAtividades, incluirPrioridade, mensagem
     });
 
@@ -2915,4 +2925,299 @@ entry.projetos.forEach(function(proj) {
 
   h += '</div></body></html>';
   return h;
+}
+
+// ========================= MÓDULO: DOCUMENTOS DO DRIVE =========================
+
+function _extrairIdPastaDrive(link) {
+  if (!link) return null;
+  var m = link.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+function _obterLinkProjeto(projetoId) {
+  var aba = obterAba(NOME_ABA_PROJETOS);
+  var valores = aba.getDataRange().getValues();
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][COLUNAS_PROJETOS.ID] == projetoId) {
+      return { link: (valores[i][COLUNAS_PROJETOS.LINK] || '').toString().trim(), linha: i + 1 };
+    }
+  }
+  return null;
+}
+
+function criarPastaProjetoDrive(token, projetoId) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const aba = obterAba(NOME_ABA_PROJETOS);
+    const valores = aba.getDataRange().getValues();
+    let linha = -1, nomeProjeto = '', linkExistente = '';
+    for (let i = 1; i < valores.length; i++) {
+      if (valores[i][COLUNAS_PROJETOS.ID] == projetoId) {
+        linha = i + 1;
+        nomeProjeto = valores[i][COLUNAS_PROJETOS.NOME] || 'Projeto ' + projetoId;
+        linkExistente = (valores[i][COLUNAS_PROJETOS.LINK] || '').toString().trim();
+        break;
+      }
+    }
+    if (linha === -1) return { sucesso: false, mensagem: 'Projeto não encontrado.' };
+    if (linkExistente) return { sucesso: true, link: linkExistente };
+
+    const pastaPrincipal = DriveApp.getFolderById(ID_PASTA_DRIVE_REUNIOES);
+    const novaSubPasta = pastaPrincipal.createFolder(nomeProjeto);
+    const linkNovo = 'https://drive.google.com/drive/folders/' + novaSubPasta.getId();
+    aba.getRange(linha, COLUNAS_PROJETOS.LINK + 1).setValue(linkNovo);
+    return { sucesso: true, link: linkNovo };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function listarDocumentosDrive(token, projetoId) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const info = _obterLinkProjeto(projetoId);
+    if (!info || !info.link) return { sucesso: true, arquivos: [], temPasta: false };
+
+    const folderId = _extrairIdPastaDrive(info.link);
+    if (!folderId) return { sucesso: true, arquivos: [], temPasta: false };
+
+    let pasta;
+    try { pasta = DriveApp.getFolderById(folderId); }
+    catch(e) { return { sucesso: true, arquivos: [], temPasta: false }; }
+
+    const arquivos = [];
+    const it = pasta.getFiles();
+    while (it.hasNext()) {
+      const f = it.next();
+      arquivos.push({
+        id: f.getId(),
+        nome: f.getName(),
+        mimeType: f.getMimeType(),
+        tamanho: f.getSize(),
+        dataModificacao: Utilities.formatDate(f.getLastUpdated(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm'),
+        urlVisualizacao: f.getUrl()
+      });
+    }
+    arquivos.sort(function(a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); });
+    return { sucesso: true, arquivos: arquivos, temPasta: true, link: info.link };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function uploadDocumentoDrive(token, projetoId, nomeArquivo, conteudoBase64, mimeType) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const info = _obterLinkProjeto(projetoId);
+    if (!info || !info.link) return { sucesso: false, mensagem: 'Este projeto não tem pasta no Drive.' };
+
+    const folderId = _extrairIdPastaDrive(info.link);
+    if (!folderId) return { sucesso: false, mensagem: 'Link de pasta inválido.' };
+
+    const pasta = DriveApp.getFolderById(folderId);
+    const dados = conteudoBase64.split(',')[1] || conteudoBase64;
+    const blob = Utilities.newBlob(Utilities.base64Decode(dados), mimeType, nomeArquivo);
+    const arquivo = pasta.createFile(blob);
+    return {
+      sucesso: true,
+      arquivo: {
+        id: arquivo.getId(),
+        nome: arquivo.getName(),
+        mimeType: arquivo.getMimeType(),
+        tamanho: arquivo.getSize(),
+        dataModificacao: Utilities.formatDate(arquivo.getLastUpdated(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm'),
+        urlVisualizacao: arquivo.getUrl()
+      }
+    };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+// ── Upload em chunks (arquivos grandes) ───────────────────────────────────────
+
+function iniciarUploadChunked(token, projetoId) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const info = _obterLinkProjeto(projetoId);
+    if (!info || !info.link) return { sucesso: false, mensagem: 'Este projeto não tem pasta no Drive.' };
+
+    const folderId = _extrairIdPastaDrive(info.link);
+    if (!folderId) return { sucesso: false, mensagem: 'Link de pasta inválido.' };
+
+    const pasta = DriveApp.getFolderById(folderId);
+    const tempNome = '__upload_temp_' + Utilities.getUuid();
+    const tempPasta = pasta.createFolder(tempNome);
+
+    return { sucesso: true, uploadId: tempPasta.getId(), folderId: folderId };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function enviarChunkUpload(token, uploadId, chunkIndex, dadosBase64) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const tempPasta = DriveApp.getFolderById(uploadId);
+    const bytes = Utilities.base64Decode(dadosBase64);
+    const nome = 'chunk_' + ('000000' + chunkIndex).slice(-6);
+    tempPasta.createFile(Utilities.newBlob(bytes, 'application/octet-stream', nome));
+
+    return { sucesso: true };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function finalizarUploadChunked(token, uploadId, totalChunks, folderId, nomeArquivo, mimeType) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const tempPasta = DriveApp.getFolderById(uploadId);
+
+    // Coleta chunks em ordem
+    var fileMap = {};
+    var iter = tempPasta.getFiles();
+    while (iter.hasNext()) {
+      var f = iter.next();
+      fileMap[f.getName()] = f.getBlob().getBytes();
+    }
+
+    // Concatena bytes
+    var totalLen = 0;
+    var arrays = [];
+    for (var i = 0; i < totalChunks; i++) {
+      var key = 'chunk_' + ('000000' + i).slice(-6);
+      if (!fileMap[key]) return { sucesso: false, mensagem: 'Parte ' + i + ' não encontrada.' };
+      var arr = fileMap[key];
+      arrays.push(arr);
+      totalLen += arr.length;
+    }
+    var combined = new Array(totalLen);
+    var offset = 0;
+    for (var a = 0; a < arrays.length; a++) {
+      for (var b = 0; b < arrays[a].length; b++) {
+        combined[offset++] = arrays[a][b];
+      }
+    }
+
+    // Salva arquivo final e apaga pasta temp
+    var pasta = DriveApp.getFolderById(folderId);
+    var blob = Utilities.newBlob(combined, mimeType, nomeArquivo);
+    var arquivo = pasta.createFile(blob);
+    tempPasta.setTrashed(true);
+
+    return {
+      sucesso: true,
+      arquivo: {
+        id: arquivo.getId(),
+        nome: arquivo.getName(),
+        mimeType: arquivo.getMimeType(),
+        tamanho: arquivo.getSize(),
+        dataModificacao: Utilities.formatDate(arquivo.getLastUpdated(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm'),
+        urlVisualizacao: arquivo.getUrl()
+      }
+    };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function renomearDocumentoDrive(token, fileId, novoNome) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+    DriveApp.getFileById(fileId).setName(novoNome);
+    return { sucesso: true };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function removerDocumentoDrive(token, fileId) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+    DriveApp.getFileById(fileId).setTrashed(true);
+    return { sucesso: true };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function obterConteudoDocumentoDrive(token, fileId) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const arquivo = DriveApp.getFileById(fileId);
+    const mimeType = arquivo.getMimeType();
+
+    if (mimeType.startsWith('text/') || mimeType === 'application/json') {
+      return { sucesso: true, tipo: 'texto', conteudo: arquivo.getBlob().getDataAsString('utf-8') };
+    } else if (mimeType.startsWith('image/')) {
+      const base64 = Utilities.base64Encode(arquivo.getBlob().getBytes());
+      return { sucesso: true, tipo: 'imagem', conteudo: 'data:' + mimeType + ';base64,' + base64 };
+    } else {
+      return { sucesso: true, tipo: 'iframe', url: 'https://drive.google.com/file/d/' + fileId + '/preview' };
+    }
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function salvarTextoNaDrive(token, projetoId, nome, conteudo, mimeTypeParam) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+
+    const info = _obterLinkProjeto(projetoId);
+    if (!info || !info.link) return { sucesso: false, mensagem: 'Este projeto não tem pasta no Drive.' };
+
+    const folderId = _extrairIdPastaDrive(info.link);
+    if (!folderId) return { sucesso: false, mensagem: 'Link de pasta inválido.' };
+
+    const mime = mimeTypeParam || 'text/html';
+    const ext  = mime === 'text/html' ? '.html' : '.txt';
+    const nomeArquivo = nome.match(/\.(html?|txt)$/i) ? nome : nome + ext;
+    const pasta = DriveApp.getFolderById(folderId);
+    const blob = Utilities.newBlob(conteudo, mime, nomeArquivo);
+    const arquivo = pasta.createFile(blob);
+    return {
+      sucesso: true,
+      arquivo: {
+        id: arquivo.getId(),
+        nome: arquivo.getName(),
+        mimeType: arquivo.getMimeType(),
+        tamanho: arquivo.getSize(),
+        dataModificacao: Utilities.formatDate(arquivo.getLastUpdated(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm'),
+        urlVisualizacao: arquivo.getUrl()
+      }
+    };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function atualizarTextoNaDrive(token, fileId, novoConteudo) {
+  try {
+    const auth = _obterSessaoEdicaoProjetos(token);
+    if (!auth.ok) return { sucesso: false, mensagem: auth.mensagem };
+    DriveApp.getFileById(fileId).setContent(novoConteudo);
+    return { sucesso: true };
+  } catch(e) {
+    return { sucesso: false, mensagem: e.message };
+  }
 }

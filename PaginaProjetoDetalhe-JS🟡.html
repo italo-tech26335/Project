@@ -126,6 +126,25 @@ todasAtividadesExpandidas: false,
 };
 
 // Variáveis de gravação de áudio
+var _modalScrollLockCount = 0;
+
+function _bloquearScrollPagina() {
+  if (_modalScrollLockCount === 0) {
+    var larguraScrollbar = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.setProperty('--modal-scrollbar-width', Math.max(larguraScrollbar, 0) + 'px');
+    document.body.classList.add('modal-scroll-lock');
+  }
+  _modalScrollLockCount += 1;
+}
+
+function _desbloquearScrollPagina() {
+  _modalScrollLockCount = Math.max(0, _modalScrollLockCount - 1);
+  if (_modalScrollLockCount === 0) {
+    document.body.classList.remove('modal-scroll-lock');
+    document.body.style.removeProperty('--modal-scrollbar-width');
+  }
+}
+
 let mediaRecorder;
 let audioChunks = [];
 
@@ -677,8 +696,9 @@ function renderizarBadgeValorPrioridade(valor, categoria) {
 /** Abre modal no topo (scroll reset) */
 function abrirModal(idModal) {
   var modal = document.getElementById(idModal);
-  if (!modal) return;
+  if (!modal || modal.classList.contains('visible')) return;
   modal.classList.add('visible');
+  _bloquearScrollPagina();
   // Forçar scroll no topo do modal
   var conteudo = modal.querySelector('.modal-content');
   if (conteudo) conteudo.scrollTop = 0;
@@ -689,7 +709,9 @@ function abrirModal(idModal) {
 /** Fecha modal */
 function fecharModal(idModal) {
   var modal = document.getElementById(idModal);
-  if (modal) modal.classList.remove('visible');
+  if (!modal || !modal.classList.contains('visible')) return;
+  modal.classList.remove('visible');
+  _desbloquearScrollPagina();
 }
 
 /** Popula os selects dos modais (Setor, Para Quem, Gravidade, Urgência, Departamento) */
@@ -2555,6 +2577,7 @@ function renderizarDiagrama() {
   html += '<div class="diagrama-proj-hero-acoes">';
   html += '<button class="btn-diagrama expandir-metricas ' + (expandido ? 'ativo' : '') + '" onclick="alternarExpansaoDiagrama(event)" title="' + (expandido ? 'Recolher' : 'Expandir') + ' detalhes"><i class="fas fa-chevron-down"></i></button>';
   html += '<button class="btn-diagrama" onclick="abrirModalEdicao(\'projeto\', \'' + proj.id + '\')" title="Editar projeto"><i class="fas fa-edit"></i></button>';
+  html += '<button class="btn-diagrama" onclick="abrirModalDocsDrive(\'' + proj.id + '\', \'' + proj.nome.replace(/'/g, "\\'") + '\')" title="Documentos no Drive"><i class="fas fa-folder-open"></i></button>';
   html += '<button class="btn-diagrama btn-diagrama-excluir" onclick="confirmarExcluirProjeto(\'' + proj.id + '\', \'' + proj.nome.replace(/'/g, "\\'") + '\', event)" title="Mover para Lixeira"><i class="fas fa-trash-alt"></i></button>';
   html += '</div></div>';
 
@@ -2865,8 +2888,9 @@ function abrirModoFoco() {
 
   if (titulo) titulo.textContent = ESTADO.projeto.nome;
 
+  if (overlay.classList.contains('visivel')) return;
   overlay.classList.add('visivel');
-  document.body.style.overflow = 'hidden';
+  _bloquearScrollPagina();
 
   // Sincroniza o conteúdo após abrir (renderizarDiagrama já chama sincronizarModoFoco no final)
   renderizarDiagrama();
@@ -2881,8 +2905,10 @@ function abrirModoFoco() {
 function fecharModoFoco() {
   ESTADO.modoFocoAberto = false;
   var overlay = document.getElementById('modalModoFoco');
-  if (overlay) overlay.classList.remove('visivel');
-  document.body.style.overflow = '';
+  if (overlay && overlay.classList.contains('visivel')) {
+    overlay.classList.remove('visivel');
+    _desbloquearScrollPagina();
+  }
 }
 
 /** Abre modal de nova atividade a partir do Modo Foco */
@@ -3076,375 +3102,17 @@ function renderizarAtividade(atividade, todasAtividades, idx, isDraggable) {
 }
 
 // ========================= MODAL RELATÓRIO DE PROJETOS =========================
+// Módulo movido para ModalRelatorio-JS🟡.html
+// Mantido aqui apenas o esc() como utilitário legado (usado em outros lugares)
 
 function esc(str) {
   if (str == null) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-var _relState = {
-  setoresSelecionados: new Set(['__todos__']),
-  responsaveisSelecionados: new Set()
-};
+// Funções migradas para ModalRelatorio-JS🟡.html — removidas daqui.
 
-function abrirModalRelatorio() {
-  var modal = document.getElementById('modalRelatorio');
-  if (!modal) return;
-  _relInicializar();
-  modal.classList.add('visible');
-}
-
-function _relInicializar() {
-  _relState.setoresSelecionados = new Set(['__todos__']);
-  _relState.responsaveisSelecionados = new Set();
-
-  _relPopularSetores();
-  _relPopularResponsaveis();
-  _relPopularDestinatarios();
-  _relAtualizarProjetos();
-
-  var inpAssunto = document.getElementById('relAssunto');
-  if (inpAssunto) inpAssunto.value = '📊 Relatório de Projetos — ' + new Date().toLocaleDateString('pt-BR');
-
-  var inpMensagem = document.getElementById('relMensagem');
-  if (inpMensagem) inpMensagem.value = '';
-
-  var inpCC = document.getElementById('relEmailsCC');
-  if (inpCC) inpCC.value = '';
-
-  var prev = document.getElementById('relPreviewArea');
-  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-}
-
-function _relPopularSetores() {
-  var container = document.getElementById('relFiltroSetores');
-  if (!container) return;
-  var setores = ESTADO.setores || [];
-  var html = '<span class="rel-chip ativo" onclick="_relToggleSetor(\'__todos__\', this)">Todos</span>';
-  setores.forEach(function(s) {
-    html += '<span class="rel-chip" onclick="_relToggleSetor(\'' + s.id + '\', this)" data-setor-id="' + s.id + '">' + esc(s.nome) + '</span>';
-  });
-  container.innerHTML = html;
-}
-
-function _relToggleSetor(setorId, el) {
-  if (setorId === '__todos__') {
-    _relState.setoresSelecionados = new Set(['__todos__']);
-    document.querySelectorAll('#relFiltroSetores .rel-chip').forEach(function(c) {
-      c.classList.toggle('ativo', !c.dataset.setorId);
-    });
-  } else {
-    _relState.setoresSelecionados.delete('__todos__');
-    if (_relState.setoresSelecionados.has(setorId)) {
-      _relState.setoresSelecionados.delete(setorId);
-      el.classList.remove('ativo');
-      if (_relState.setoresSelecionados.size === 0) {
-        _relState.setoresSelecionados.add('__todos__');
-        var chipTodos = document.querySelector('#relFiltroSetores .rel-chip:not([data-setor-id])');
-        if (chipTodos) chipTodos.classList.add('ativo');
-      }
-    } else {
-      _relState.setoresSelecionados.add(setorId);
-      el.classList.add('ativo');
-      var chipTodos2 = document.querySelector('#relFiltroSetores .rel-chip:not([data-setor-id])');
-      if (chipTodos2) chipTodos2.classList.remove('ativo');
-    }
-  }
-  _relAtualizarProjetos();
-}
-
-function _relPopularResponsaveis() {
-  var container = document.getElementById('relFiltroResponsaveis');
-  if (!container) return;
-  var resps = ESTADO.responsaveis || [];
-  if (resps.length === 0) {
-    container.innerHTML = '<span style="color:var(--cor-texto-secundario);font-size:0.75rem;">Nenhum responsável</span>';
-    return;
-  }
-  var html = '';
-  resps.forEach(function(r) {
-    html += '<label class="rel-check-item">' +
-      '<input type="checkbox" data-resp-id="' + r.id + '" onchange="_relOnRespChange(this)">' +
-      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(r.nome) + '</span>' +
-    '</label>';
-  });
-  container.innerHTML = html;
-}
-
-function _relToggleAllResponsaveis() {
-  var cbs = document.querySelectorAll('#relFiltroResponsaveis input[type="checkbox"]');
-  var algum = Array.from(cbs).some(function(c) { return c.checked; });
-  cbs.forEach(function(c) {
-    c.checked = !algum;
-    var id = c.dataset.respId;
-    if (!algum) _relState.responsaveisSelecionados.add(id);
-    else _relState.responsaveisSelecionados.delete(id);
-  });
-  _relAtualizarProjetos();
-}
-
-function _relOnRespChange(cb) {
-  var id = cb.dataset.respId;
-  if (cb.checked) _relState.responsaveisSelecionados.add(id);
-  else _relState.responsaveisSelecionados.delete(id);
-  _relAtualizarProjetos();
-}
-
-function _relGetProjetosFiltrados() {
-  var projetos = ESTADO.listaProjetos || [];
-  var eTodos  = _relState.setoresSelecionados.has('__todos__');
-  var semResp = _relState.responsaveisSelecionados.size === 0;
-
-  return projetos.filter(function(p) {
-    if (!eTodos) {
-      var setorNome = (p.setor || '').trim();
-      var setor = (ESTADO.setores || []).find(function(s) { return s.nome === setorNome || s.id === setorNome; });
-      var setorId = setor ? setor.id : null;
-      if (!setorId || !_relState.setoresSelecionados.has(setorId)) return false;
-    }
-    if (!semResp) {
-      var rIds = p.responsaveisIds || [];
-      if (!rIds.some(function(id) { return _relState.responsaveisSelecionados.has(id); })) return false;
-    }
-    return true;
-  });
-}
-
-function _relAtualizarProjetos() {
-  var container = document.getElementById('relListaProjetos');
-  var contador  = document.getElementById('relContadorProjetos');
-  if (!container) return;
-
-  var projetos = _relGetProjetosFiltrados();
-  if (contador) contador.textContent = projetos.length;
-
-  if (projetos.length === 0) {
-    container.innerHTML = '<span style="color:var(--cor-texto-secundario);font-size:0.75rem;padding:6px 0;display:block;">Nenhum projeto nos filtros selecionados</span>';
-    _relAtualizarResumo();
-    return;
-  }
-
-  // Sort by priority desc
-  projetos = projetos.slice().sort(function(a, b) { return (b.valorPrioridade || 0) - (a.valorPrioridade || 0); });
-
-  var html = '';
-  projetos.forEach(function(p) {
-    var cls = obterClasseStatus(p.status);
-    html +=
-      '<label class="rel-check-item">' +
-        '<input type="checkbox" data-proj-id="' + p.id + '" checked onchange="_relAtualizarResumo()">' +
-        '<span class="badge badge-' + cls + '" style="font-size:0.6rem;padding:1px 5px;white-space:nowrap;">' + esc(p.status || 'A Fazer') + '</span>' +
-        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(p.nome) + '">' + esc(p.nome) + '</span>' +
-      '</label>';
-  });
-  container.innerHTML = html;
-  _relAtualizarResumo();
-}
-
-function _relToggleAllProjetos(marcar) {
-  document.querySelectorAll('#relListaProjetos input[type="checkbox"]').forEach(function(cb) {
-    cb.checked = marcar !== false;
-  });
-  _relAtualizarResumo();
-}
-
-function _relGetProjetosMarcados() {
-  return Array.from(document.querySelectorAll('#relListaProjetos input[type="checkbox"]:checked'))
-    .map(function(cb) { return cb.dataset.projId; });
-}
-
-function _relAtualizarResumo() {
-  var ids = _relGetProjetosMarcados();
-  var el = document.getElementById('relResumoSelecao');
-  if (el) {
-    if (ids.length === 0) {
-      el.textContent = 'Nenhum projeto selecionado';
-    } else {
-      var totalAtv = 0;
-      ids.forEach(function(id) {
-        var atv = (ESTADO.etapas || []).filter(function(e) {
-          if (e.projetoId !== id) return false;
-          var apenasAtivos = document.getElementById('relOpcApenasAtivos');
-          if (apenasAtivos && apenasAtivos.checked) return e.status !== 'Concluída' && e.status !== 'Suspenso';
-          return true;
-        });
-        totalAtv += atv.length;
-      });
-      el.textContent = ids.length + ' projeto(s) · ' + totalAtv + ' atividade(s) pendente(s)';
-    }
-  }
-}
-
-function _relPopularDestinatarios() {
-  var container = document.getElementById('relDestinatarios');
-  if (!container) return;
-  var resps = ESTADO.responsaveis || [];
-  var com_email = resps.filter(function(r) { return r.email; });
-  if (com_email.length === 0) {
-    container.innerHTML = '<span style="color:var(--cor-texto-secundario);font-size:0.75rem;">Nenhum responsável com email</span>';
-    return;
-  }
-  var html = '';
-  com_email.forEach(function(r) {
-    html +=
-      '<label class="rel-check-item">' +
-        '<input type="checkbox" data-dest-id="' + r.id + '">' +
-        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.email) + '">' + esc(r.nome) + '</span>' +
-      '</label>';
-  });
-  container.innerHTML = html;
-}
-
-function _relGetDestinatariosIds() {
-  return Array.from(document.querySelectorAll('#relDestinatarios input[type="checkbox"]:checked'))
-    .map(function(cb) { return cb.dataset.destId; });
-}
-
-function _relGetOpcoes() {
-  var projetoIds = _relGetProjetosMarcados();
-  var emailsCC = (document.getElementById('relEmailsCC').value || '')
-    .split(',').map(function(e) { return e.trim(); }).filter(Boolean);
-  return {
-    projetoIds:        projetoIds,
-    apenasAtivos:      document.getElementById('relOpcApenasAtivos').checked,
-    incluirDescricao:  document.getElementById('relOpcDescricao').checked,
-    incluirAtividades: document.getElementById('relOpcAtividades').checked,
-    incluirPrioridade: document.getElementById('relOpcPrioridade').checked,
-    destinatariosIds:  _relGetDestinatariosIds(),
-    emailsCC:          emailsCC,
-    assunto:           (document.getElementById('relAssunto').value || '').trim(),
-    mensagem:          (document.getElementById('relMensagem').value || '').trim()
-  };
-}
-
-function _relGerarPreview() {
-  var opc = _relGetOpcoes();
-  if (opc.projetoIds.length === 0) {
-    mostrarToast('Selecione ao menos um projeto', 'aviso');
-    return;
-  }
-
-  var projetos = (ESTADO.listaProjetos || [])
-    .filter(function(p) { return opc.projetoIds.indexOf(p.id) >= 0; })
-    .slice().sort(function(a, b) { return (b.valorPrioridade || 0) - (a.valorPrioridade || 0); });
-
-  var html = '<div class="rel-preview-titulo"><i class="fas fa-eye"></i> Pré-visualização — ' + projetos.length + ' projeto(s)</div>';
-
-  projetos.forEach(function(p) {
-    var etapas = (ESTADO.etapas || []).filter(function(e) { return e.projetoId === p.id; });
-    if (opc.apenasAtivos) {
-      etapas = etapas.filter(function(e) { return e.status !== 'Concluída' && e.status !== 'Suspenso'; });
-    }
-    var resps     = obterNomesResponsaveis(p.responsaveisIds || []);
-    var cls       = obterClasseStatus(p.status);
-    var catPrio   = obterCategoriaPrioridade(p.valorPrioridade || 0);
-    var totalAtv  = (ESTADO.etapas || []).filter(function(e) { return e.projetoId === p.id; }).length;
-    var conclAtv  = (ESTADO.etapas || []).filter(function(e) { return e.projetoId === p.id && e.status === 'Concluída'; }).length;
-    var pct       = totalAtv > 0 ? Math.round((conclAtv / totalAtv) * 100) : 0;
-    var corPct    = pct === 100 ? 'var(--cor-sucesso)' : pct >= 50 ? 'var(--cor-aviso)' : 'var(--cor-primaria)';
-
-    html += '<div class="rel-proj-card">';
-
-    // Header do projeto
-    html += '<div class="rel-proj-header">';
-    html += '<div style="flex:1;">';
-    html += '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px;">';
-    html += '<strong style="font-size:0.87rem;color:var(--cor-primaria-escura);">' + esc(p.nome) + '</strong>';
-    html += '<span class="badge badge-' + cls + '" style="font-size:0.62rem;">' + esc(p.status || '') + '</span>';
-    if (opc.incluirPrioridade && p.valorPrioridade) {
-      var lblPrio = catPrio === 'alta' ? '🔴 ALTA' : catPrio === 'media' ? '🟡 MÉDIA' : '🟢 BAIXA';
-      html += '<span class="badge" style="font-size:0.62rem;background:var(--cor-fundo);border:1px solid var(--cor-borda);">' + lblPrio + '</span>';
-    }
-    html += '</div>';
-    var meta = [];
-    if (p.setor)             meta.push('<i class="fas fa-building" style="margin-right:3px;"></i>' + esc(p.setor));
-    if (resps.length)        meta.push('<i class="fas fa-user" style="margin-right:3px;"></i>' + resps.map(function(r) { return r.nome; }).join(', '));
-    if (p.dataFim)           meta.push('<i class="fas fa-flag-checkered" style="margin-right:3px;"></i>' + p.dataFim);
-    if (meta.length) html += '<div style="font-size:0.7rem;color:var(--cor-texto-secundario);display:flex;flex-wrap:wrap;gap:10px;">' + meta.map(function(m){ return '<span>' + m + '</span>'; }).join('') + '</div>';
-    html += '</div>';
-
-    // Barra de progresso + pct
-    html += '<div style="text-align:center;min-width:52px;">';
-    html += '<div style="font-size:1.25rem;font-weight:700;color:' + corPct + ';">' + pct + '%</div>';
-    html += '<div style="font-size:0.62rem;color:var(--cor-texto-secundario);">' + conclAtv + '/' + totalAtv + '</div>';
-    html += '</div>';
-    html += '</div>'; // /rel-proj-header
-
-    // Descrição
-    if (opc.incluirDescricao && p.descricao) {
-      html += '<div style="padding:7px 14px;border-bottom:1px solid var(--cor-borda-clara);font-size:0.77rem;color:var(--cor-texto);line-height:1.5;">' + esc(p.descricao) + '</div>';
-    }
-
-    // Atividades
-    if (opc.incluirAtividades) {
-      html += '<div class="rel-proj-body">';
-      if (etapas.length === 0) {
-        html += '<p style="color:var(--cor-texto-secundario);font-size:0.75rem;font-style:italic;margin:0;">Nenhuma atividade' + (opc.apenasAtivos ? ' pendente' : '') + '.</p>';
-      } else {
-        html += '<table class="rel-atv-table">';
-        html += '<thead><tr><th>Atividade</th><th style="white-space:nowrap;text-align:center;">Status</th><th>Responsável</th></tr></thead><tbody>';
-        etapas.forEach(function(e) {
-          var clsE  = obterClasseStatus(e.status);
-          var respsE = obterNomesResponsaveis(e.responsaveisIds || []).map(function(r) { return r.nome; }).join(', ') || '—';
-          html += '<tr>';
-          html += '<td>' + esc(e.nome || '') + '</td>';
-          html += '<td style="text-align:center;"><span class="badge badge-' + clsE + '" style="font-size:0.62rem;">' + esc(e.status || '') + '</span></td>';
-          html += '<td style="color:var(--cor-texto-secundario);">' + esc(respsE) + '</td>';
-          html += '</tr>';
-        });
-        html += '</tbody></table>';
-      }
-      html += '</div>';
-    }
-
-    html += '</div>'; // /rel-proj-card
-  });
-
-  var area = document.getElementById('relPreviewArea');
-  if (area) {
-    area.innerHTML = html;
-    area.style.display = 'block';
-    area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
-
-function _relEnviarEmail() {
-  var opc = _relGetOpcoes();
-
-  if (opc.projetoIds.length === 0) {
-    mostrarToast('Selecione ao menos um projeto', 'aviso');
-    return;
-  }
-  if (opc.destinatariosIds.length === 0 && opc.emailsCC.length === 0) {
-    mostrarToast('Selecione ao menos um destinatário ou informe um email em cópia', 'aviso');
-    return;
-  }
-
-  var btn = document.getElementById('btnRelEnviar');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'; }
-
-  if (typeof google === 'undefined' || !google.script) {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar por Email'; }
-    mostrarToast('Envio indisponível fora do Google Apps Script', 'aviso');
-    return;
-  }
-
-  google.script.run
-    .withSuccessHandler(function(res) {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar por Email'; }
-      if (res.sucesso) {
-        mostrarToast('Relatório enviado com sucesso!', 'sucesso');
-        fecharModal('modalRelatorio');
-      } else {
-        mostrarToast('Erro ao enviar: ' + (res.mensagem || 'Erro desconhecido'), 'erro');
-      }
-    })
-    .withFailureHandler(function(e) {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar por Email'; }
-      mostrarToast('Falha ao enviar relatório', 'erro');
-    })
-    .enviarRelatorioProjetosEmail(SESSAO_TOKEN, opc);
-}
+// Funções do relatório migradas para ModalRelatorio-JS🟡.html.
 
 // ========================= CHECKLIST DE ATIVIDADES =========================
 
@@ -4027,7 +3695,7 @@ function abrirModalEdicao(tipo, id) {
     document.getElementById('itemNome').value       = proj.nome      || '';
     document.getElementById('itemDescricao').value  = proj.descricao || ''; 
     document.getElementById('itemPilar').value      = proj.pilar     || '';
-    document.getElementById('itemLink').value       = proj.link  || '';
+    // itemLink removido — link gerenciado automaticamente via Drive
     document.getElementById('itemStatus').value     = proj.status || 'A Fazer';
     document.getElementById('itemDataInicio').value = proj.dataInicio || '';
     document.getElementById('itemDataFim').value    = proj.dataFim    || '';
@@ -4129,7 +3797,7 @@ function salvarProjeto() {
     paraQuem:        paraQuemLabel,
     setor:           document.getElementById('itemSetor').value,
     pilar:           document.getElementById('itemPilar').value.trim(),
-    link:            document.getElementById('itemLink').value.trim(),
+    link:            (ESTADO.projeto && ESTADO.projeto.link) ? ESTADO.projeto.link : '',
     status:          document.getElementById('itemStatus').value,
     prioridade:      textoPrio,
     gravidade:       gravidadeLabel,
@@ -4321,7 +3989,7 @@ function abrirModalNovoProjeto() {
   document.getElementById('novoProjetoNome').value      = '';
   document.getElementById('novoProjetoDescricao').value = '';
   document.getElementById('novoProjetoPilar').value     = '';
-  document.getElementById('novoProjetoLink').value      = '';
+  // novoProjetoLink removido — pasta criada automaticamente no Drive
   if (document.getElementById('novoProjetoDataInicio')) document.getElementById('novoProjetoDataInicio').value = '';
   if (document.getElementById('novoProjetoDataFim'))    document.getElementById('novoProjetoDataFim').value    = '';
 
@@ -4450,7 +4118,7 @@ function salvarNovoProjeto() {
     descricao:       document.getElementById('novoProjetoDescricao').value.trim(),
     setor:           document.getElementById('novoProjetoSetor').value,
     pilar:           document.getElementById('novoProjetoPilar').value.trim(),
-    link:            document.getElementById('novoProjetoLink').value.trim(),
+    link:            '',
     status:          (document.getElementById('novoProjetoStatus') || {value:'A Fazer'}).value || 'A Fazer',
     tipo:            c.tipoProjetoLabel || '',
     paraQuem:        c.paraQuemLabel    || '',
@@ -4474,7 +4142,7 @@ function salvarNovoProjeto() {
         if (res.sucesso) {
           fecharModalNovoProjeto();
           mostrarToast('Projeto criado!', 'sucesso');
-          var novoProjeto = Object.assign({}, dados, { id: res.id });
+          var novoProjeto = Object.assign({}, dados, { id: res.id, link: res.link || '' });
           ESTADO.listaProjetos.push(novoProjeto);
           renderizarTudo();
           selecionarProjeto(res.id);
@@ -5343,42 +5011,7 @@ style.textContent =
   '.btn-lixeira-excluir{background:rgba(166,61,64,0.08);color:var(--cor-perigo);border:1px solid rgba(166,61,64,0.25);width:32px;height:32px;border-radius:var(--raio);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.82rem;transition:var(--transicao);}' +
   '.btn-lixeira-excluir:hover{background:var(--cor-perigo);color:#faf6ee;}' +
 
-  // ── Modal Relatório de Projetos ──
-  '.modal-relatorio-content{max-width:860px!important;max-height:92vh!important;}' +
-  '.rel-toolbar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--cor-fundo-quente);border-bottom:1px solid var(--cor-borda-clara);font-size:0.78rem;color:var(--cor-texto-secundario);}' +
-  '.rel-toolbar-info{flex:1;display:flex;align-items:center;gap:6px;}' +
-  '.relatorio-grid{display:grid;grid-template-columns:230px 1fr;min-height:420px;}' +
-  '.relatorio-col-filtros{padding:14px 12px 14px 16px;border-right:1px solid var(--cor-borda-clara);display:flex;flex-direction:column;gap:0;overflow-y:auto;}' +
-  '.relatorio-col-opcoes{padding:14px 16px;display:flex;flex-direction:column;gap:0;overflow-y:auto;}' +
-  '.rel-secao{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--cor-borda-clara);}' +
-  '.rel-secao-titulo{font-size:0.72rem;font-weight:700;color:var(--cor-primaria-escura);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;}' +
-  '.rel-secao-titulo i{color:var(--cor-primaria);font-size:0.68rem;}' +
-  '.rel-chips-group{display:flex;flex-wrap:wrap;gap:4px;}' +
-  '.rel-chip{padding:3px 9px;border-radius:100px;font-size:0.7rem;font-weight:600;cursor:pointer;border:1px solid var(--cor-borda);background:var(--cor-fundo-card);color:var(--cor-texto-secundario);transition:var(--transicao);}' +
-  '.rel-chip.ativo{background:var(--cor-primaria);color:#faf6ee;border-color:var(--cor-primaria);}' +
-  '.rel-chip:hover{border-color:var(--cor-primaria-clara);}' +
-  '.rel-check-list{display:flex;flex-direction:column;gap:3px;overflow-y:auto;}' +
-  '.rel-check-item{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:var(--raio);border:1px solid transparent;cursor:pointer;transition:var(--transicao);font-size:0.79rem;color:var(--cor-texto);}' +
-  '.rel-check-item:hover{background:var(--cor-fundo);border-color:var(--cor-borda-clara);}' +
-  '.rel-check-item input[type="checkbox"]{width:auto;margin:0;accent-color:var(--cor-primaria);flex-shrink:0;cursor:pointer;}' +
-  '.rel-projetos-list{max-height:190px;}' +
-  '.rel-toggle-item{display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--cor-fundo);border:1px solid var(--cor-borda-clara);border-radius:var(--raio);cursor:pointer;font-size:0.78rem;color:var(--cor-texto);transition:var(--transicao);}' +
-  '.rel-toggle-item:hover{background:var(--cor-primaria-bg);border-color:var(--cor-primaria-clara);}' +
-  '.rel-toggle-item input[type="checkbox"]{width:auto;accent-color:var(--cor-primaria);flex-shrink:0;cursor:pointer;}' +
-  '.rel-destinatarios-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;max-height:110px;overflow-y:auto;}' +
-  '.rel-btn-link{background:none;border:none;color:var(--cor-primaria);font-size:0.72rem;cursor:pointer;text-decoration:underline;padding:0;font-family:inherit;}' +
-  '.rel-btn-link-sm{background:none;border:none;color:var(--cor-primaria);font-size:0.68rem;cursor:pointer;text-decoration:underline;padding:0;font-family:inherit;white-space:nowrap;}' +
-  '.rel-contador{font-size:0.68rem;color:var(--cor-texto-secundario);background:var(--cor-fundo);padding:1px 7px;border-radius:100px;border:1px solid var(--cor-borda-clara);font-weight:400;}' +
-  '.rel-preview-area{margin:0;padding:16px 20px;background:var(--cor-fundo);border-top:2px solid var(--cor-borda);max-height:320px;overflow-y:auto;font-size:0.78rem;}' +
-  '.rel-preview-titulo{font-size:0.78rem;font-weight:700;color:var(--cor-primaria-escura);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;display:flex;align-items:center;gap:6px;}' +
-  '.rel-proj-card{background:var(--cor-fundo-card);border:1px solid var(--cor-borda);border-radius:var(--raio-lg);margin-bottom:10px;overflow:hidden;}' +
-  '.rel-proj-header{padding:10px 14px;background:linear-gradient(135deg,var(--cor-fundo-quente),#f0e8d8);border-bottom:1px solid var(--cor-borda-clara);display:flex;align-items:flex-start;gap:10px;}' +
-  '.rel-proj-body{padding:10px 14px;}' +
-  '.rel-atv-table{width:100%;border-collapse:collapse;font-size:0.75rem;}' +
-  '.rel-atv-table th{padding:4px 8px;text-align:left;color:var(--cor-texto-secundario);font-weight:600;border-bottom:2px solid var(--cor-borda);font-size:0.68rem;text-transform:uppercase;}' +
-  '.rel-atv-table td{padding:5px 8px;border-bottom:1px solid var(--cor-borda-clara);color:var(--cor-texto);}' +
-  '.rel-atv-table tr:last-child td{border-bottom:none;}' +
-  '.rel-atv-table tr:nth-child(even){background:var(--cor-fundo);}' +
+  // ── CSS do Modal Relatório migrado para ModalRelatorio-CSS🟡.html ──
 
   // ── Progresso das atividades ──
   '.diagrama-progresso-wrapper{margin:0 0 2px;padding:12px 16px;background:var(--cor-fundo);border-top:1px solid var(--cor-borda-clara);}' +
@@ -5565,17 +5198,78 @@ function _fecharDropdownCriarExterno(e) {
   }
 }
 
-// ========================= MODAL NOVO SETOR =========================
+// ========================= MODAL NOVO / EDITAR SETOR =========================
+function _esc(str) {
+  return (str || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+var _editandoSetorId = null;
+
 function abrirModalNovoSetor() {
+  _editandoSetorId = null;
   var nome = document.getElementById('novoSetorNome');
   var desc = document.getElementById('novoSetorDescricao');
   if (nome) nome.value = '';
   if (desc) desc.value = '';
+  var tit = document.getElementById('modalNovoSetorTitulo');
+  var btn = document.getElementById('modalNovoSetorBtnSalvar');
+  if (tit) tit.innerHTML = '<i class="fas fa-building"></i> Novo Setor';
+  if (btn) btn.innerHTML = '<i class="fas fa-save"></i> Criar Setor';
   abrirModal('modalNovoSetor');
   setTimeout(function() { if (nome) nome.focus(); }, 100);
 }
 
+function abrirEditarSetor(id) {
+  var setor = (ESTADO.setores || []).find(function(s) { return s.id === id; });
+  if (!setor) { mostrarToast('Setor não encontrado', 'erro'); return; }
+  _editandoSetorId = id;
+  var nome = document.getElementById('novoSetorNome');
+  var desc = document.getElementById('novoSetorDescricao');
+  if (nome) nome.value = setor.nome || '';
+  if (desc) desc.value = setor.descricao || '';
+  var tit = document.getElementById('modalNovoSetorTitulo');
+  var btn = document.getElementById('modalNovoSetorBtnSalvar');
+  if (tit) tit.innerHTML = '<i class="fas fa-pen"></i> Editar Setor';
+  if (btn) btn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
+  fecharModal('modalGerenciarSetores');
+  abrirModal('modalNovoSetor');
+  setTimeout(function() { if (nome) nome.focus(); }, 100);
+}
+
+function abrirModalGerenciarSetores() {
+  _renderListaSetores();
+  abrirModal('modalGerenciarSetores');
+}
+
+function _renderListaSetores() {
+  var lista = document.getElementById('listaGerenciarSetores');
+  if (!lista) return;
+  var setores = ESTADO.setores || [];
+  if (!setores.length) {
+    lista.innerHTML = '<p style="color:var(--cor-texto-secundario);font-size:0.82rem;text-align:center;padding:20px 0;">Nenhum setor cadastrado.</p>';
+    return;
+  }
+  var html = '<table style="width:100%;border-collapse:collapse;">'
+    + '<thead><tr>'
+    + '<th style="text-align:left;font-size:0.72rem;color:var(--cor-texto-secundario);font-weight:600;padding:6px 10px;border-bottom:2px solid var(--cor-borda-clara);text-transform:uppercase;">Nome</th>'
+    + '<th style="text-align:left;font-size:0.72rem;color:var(--cor-texto-secundario);font-weight:600;padding:6px 10px;border-bottom:2px solid var(--cor-borda-clara);text-transform:uppercase;">Descrição</th>'
+    + '<th style="width:60px;border-bottom:2px solid var(--cor-borda-clara);"></th>'
+    + '</tr></thead><tbody>';
+  setores.forEach(function(s) {
+    html += '<tr style="border-bottom:1px solid var(--cor-borda-clara);">'
+      + '<td style="padding:9px 10px;font-size:0.85rem;color:var(--cor-texto);font-weight:500;">' + _esc(s.nome) + '</td>'
+      + '<td style="padding:9px 10px;font-size:0.78rem;color:var(--cor-texto-secundario);">' + (s.descricao ? _esc(s.descricao) : '—') + '</td>'
+      + '<td style="padding:6px 10px;text-align:right;">'
+      + '<button onclick="abrirEditarSetor(\'' + s.id + '\')" style="background:var(--cor-primaria-bg);border:1px solid var(--cor-primaria);color:var(--cor-primaria);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.75rem;font-weight:600;">'
+      + '<i class="fas fa-pen"></i></button>'
+      + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  lista.innerHTML = html;
+}
+
 function fecharModalNovoSetor() {
+  _editandoSetorId = null;
   fecharModal('modalNovoSetor');
 }
 
@@ -5584,47 +5278,58 @@ function salvarNovoSetor() {
   if (!nome) { mostrarToast('Nome do setor é obrigatório', 'erro'); return; }
 
   var descricao = (document.getElementById('novoSetorDescricao').value || '').trim();
-
-  var btnSalvar = document.querySelector('#modalNovoSetor .btn-acao');
+  var editando  = !!_editandoSetorId;
+  var btnSalvar = document.getElementById('modalNovoSetorBtnSalvar');
   if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
 
   var dados = { nome: nome, descricao: descricao };
+  if (editando) dados.id = _editandoSetorId;
+
+  function _aoSalvar(res) {
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> ' + (editando ? 'Salvar Alterações' : 'Criar Setor'); }
+    if (res && res.sucesso) {
+      if (editando) {
+        var idx = ESTADO.setores.findIndex(function(s) { return s.id === _editandoSetorId; });
+        if (idx >= 0) ESTADO.setores[idx] = { id: _editandoSetorId, nome: nome, descricao: descricao };
+        mostrarToast('Setor "' + nome + '" atualizado!', 'sucesso');
+      } else {
+        ESTADO.setores.push({ id: res.id, nome: nome, descricao: descricao });
+        mostrarToast('Setor "' + nome + '" criado com sucesso!', 'sucesso');
+      }
+      popularSelectsModais();
+      fecharModalNovoSetor();
+    } else {
+      mostrarToast('Erro: ' + (res ? res.mensagem : 'Falha ao salvar'), 'erro');
+    }
+  }
 
   if (typeof google !== 'undefined' && google.script) {
     google.script.run
-      .withSuccessHandler(function(res) {
-        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Criar Setor'; }
-        if (res && res.sucesso) {
-          ESTADO.setores.push({ id: res.id, nome: nome, descricao: descricao });
-          popularSelectsModais();
-          fecharModalNovoSetor();
-          mostrarToast('Setor "' + nome + '" criado com sucesso!', 'sucesso');
-        } else {
-          mostrarToast('Erro: ' + (res ? res.mensagem : 'Falha ao salvar'), 'erro');
-        }
-      })
+      .withSuccessHandler(_aoSalvar)
       .withFailureHandler(function(e) {
-        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Criar Setor'; }
+        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> ' + (editando ? 'Salvar Alterações' : 'Criar Setor'); }
         mostrarToast('Erro: ' + e, 'erro');
       })
       .salvarSetor(dados);
   } else {
-    // Demo/offline
-    var idDemo = 'set_' + Date.now();
-    ESTADO.setores.push({ id: idDemo, nome: nome, descricao: descricao });
-    popularSelectsModais();
-    fecharModalNovoSetor();
-    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Criar Setor'; }
-    mostrarToast('Setor "' + nome + '" criado (demo)', 'sucesso');
+    var idDemo = _editandoSetorId || ('set_' + Date.now());
+    _aoSalvar({ sucesso: true, id: idDemo });
   }
 }
 
-// ========================= MODAL NOVO RESPONSÁVEL =========================
+// ========================= MODAL NOVO / EDITAR RESPONSÁVEL =========================
+var _editandoResponsavelId = null;
+
 function abrirModalNovoResponsavel() {
+  _editandoResponsavelId = null;
   ['novoResponsavelNome', 'novoResponsavelEmail', 'novoResponsavelCargo'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
+  var tit = document.getElementById('modalNovoResponsavelTitulo');
+  var btn = document.getElementById('modalNovoResponsavelBtnSalvar');
+  if (tit) tit.innerHTML = '<i class="fas fa-user-plus"></i> Novo Responsável';
+  if (btn) btn.innerHTML = '<i class="fas fa-save"></i> Criar Responsável';
   abrirModal('modalNovoResponsavel');
   setTimeout(function() {
     var el = document.getElementById('novoResponsavelNome');
@@ -5632,7 +5337,61 @@ function abrirModalNovoResponsavel() {
   }, 100);
 }
 
+function abrirEditarResponsavel(id) {
+  var resp = (ESTADO.responsaveis || []).find(function(r) { return r.id === id; });
+  if (!resp) { mostrarToast('Responsável não encontrado', 'erro'); return; }
+  _editandoResponsavelId = id;
+  var fnome  = document.getElementById('novoResponsavelNome');
+  var femail = document.getElementById('novoResponsavelEmail');
+  var fcargo = document.getElementById('novoResponsavelCargo');
+  if (fnome)  fnome.value  = resp.nome  || '';
+  if (femail) femail.value = resp.email || '';
+  if (fcargo) fcargo.value = resp.cargo || '';
+  var tit = document.getElementById('modalNovoResponsavelTitulo');
+  var btn = document.getElementById('modalNovoResponsavelBtnSalvar');
+  if (tit) tit.innerHTML = '<i class="fas fa-pen"></i> Editar Responsável';
+  if (btn) btn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
+  fecharModal('modalGerenciarResponsaveis');
+  abrirModal('modalNovoResponsavel');
+  setTimeout(function() { if (fnome) fnome.focus(); }, 100);
+}
+
+function abrirModalGerenciarResponsaveis() {
+  _renderListaResponsaveis();
+  abrirModal('modalGerenciarResponsaveis');
+}
+
+function _renderListaResponsaveis() {
+  var lista = document.getElementById('listaGerenciarResponsaveis');
+  if (!lista) return;
+  var resps = ESTADO.responsaveis || [];
+  if (!resps.length) {
+    lista.innerHTML = '<p style="color:var(--cor-texto-secundario);font-size:0.82rem;text-align:center;padding:20px 0;">Nenhum responsável cadastrado.</p>';
+    return;
+  }
+  var html = '<table style="width:100%;border-collapse:collapse;">'
+    + '<thead><tr>'
+    + '<th style="text-align:left;font-size:0.72rem;color:var(--cor-texto-secundario);font-weight:600;padding:6px 10px;border-bottom:2px solid var(--cor-borda-clara);text-transform:uppercase;">Nome</th>'
+    + '<th style="text-align:left;font-size:0.72rem;color:var(--cor-texto-secundario);font-weight:600;padding:6px 10px;border-bottom:2px solid var(--cor-borda-clara);text-transform:uppercase;">Email</th>'
+    + '<th style="text-align:left;font-size:0.72rem;color:var(--cor-texto-secundario);font-weight:600;padding:6px 10px;border-bottom:2px solid var(--cor-borda-clara);text-transform:uppercase;">Cargo</th>'
+    + '<th style="width:60px;border-bottom:2px solid var(--cor-borda-clara);"></th>'
+    + '</tr></thead><tbody>';
+  resps.forEach(function(r) {
+    html += '<tr style="border-bottom:1px solid var(--cor-borda-clara);">'
+      + '<td style="padding:9px 10px;font-size:0.85rem;color:var(--cor-texto);font-weight:500;">' + _esc(r.nome) + '</td>'
+      + '<td style="padding:9px 10px;font-size:0.78rem;color:var(--cor-texto-secundario);">' + (r.email ? _esc(r.email) : '—') + '</td>'
+      + '<td style="padding:9px 10px;font-size:0.78rem;color:var(--cor-texto-secundario);">' + (r.cargo ? _esc(r.cargo) : '—') + '</td>'
+      + '<td style="padding:6px 10px;text-align:right;">'
+      + '<button onclick="abrirEditarResponsavel(\'' + r.id + '\')" style="background:var(--cor-primaria-bg);border:1px solid var(--cor-primaria);color:var(--cor-primaria);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.75rem;font-weight:600;">'
+      + '<i class="fas fa-pen"></i></button>'
+      + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  lista.innerHTML = html;
+}
+
 function fecharModalNovoResponsavel() {
+  _editandoResponsavelId = null;
   fecharModal('modalNovoResponsavel');
 }
 
@@ -5644,40 +5403,43 @@ function salvarNovoResponsavel() {
   if (!nome)  { mostrarToast('Nome é obrigatório', 'erro'); return; }
   if (!email) { mostrarToast('Email é obrigatório', 'erro'); return; }
 
-  var btnSalvar = document.querySelector('#modalNovoResponsavel .btn-acao');
+  var editando  = !!_editandoResponsavelId;
+  var btnSalvar = document.getElementById('modalNovoResponsavelBtnSalvar');
   if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
 
   var dados = { nome: nome, email: email, cargo: cargo };
+  if (editando) dados.id = _editandoResponsavelId;
+
+  function _aoSalvar(res) {
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> ' + (editando ? 'Salvar Alterações' : 'Criar Responsável'); }
+    if (res && res.sucesso) {
+      if (editando) {
+        var idx = ESTADO.responsaveis.findIndex(function(r) { return r.id === _editandoResponsavelId; });
+        if (idx >= 0) ESTADO.responsaveis[idx] = { id: _editandoResponsavelId, nome: nome, email: email, cargo: cargo };
+        mostrarToast('Responsável "' + nome + '" atualizado!', 'sucesso');
+      } else {
+        ESTADO.responsaveis.push({ id: res.id, nome: nome, email: email, cargo: cargo });
+        mostrarToast('Responsável "' + nome + '" criado com sucesso!', 'sucesso');
+      }
+      popularCheckboxesResponsaveis('itemResponsaveisContainer', _obterResponsaveisSelecionadosAtual('itemResponsaveisContainer'));
+      popularCheckboxesResponsaveis('novoProjetoResponsaveisContainer', []);
+      fecharModalNovoResponsavel();
+    } else {
+      mostrarToast('Erro: ' + (res ? res.mensagem : 'Falha ao salvar'), 'erro');
+    }
+  }
 
   if (typeof google !== 'undefined' && google.script) {
     google.script.run
-      .withSuccessHandler(function(res) {
-        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Criar Responsável'; }
-        if (res && res.sucesso) {
-          var novoResp = { id: res.id, nome: nome, email: email, cargo: cargo };
-          ESTADO.responsaveis.push(novoResp);
-          // Atualiza multi-selects de responsáveis abertos
-          popularCheckboxesResponsaveis('itemResponsaveisContainer', _obterResponsaveisSelecionadosAtual('itemResponsaveisContainer'));
-          popularCheckboxesResponsaveis('novoProjetoResponsaveisContainer', []);
-          fecharModalNovoResponsavel();
-          mostrarToast('Responsável "' + nome + '" criado com sucesso!', 'sucesso');
-        } else {
-          mostrarToast('Erro: ' + (res ? res.mensagem : 'Falha ao salvar'), 'erro');
-        }
-      })
+      .withSuccessHandler(_aoSalvar)
       .withFailureHandler(function(e) {
-        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Criar Responsável'; }
+        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> ' + (editando ? 'Salvar Alterações' : 'Criar Responsável'); }
         mostrarToast('Erro: ' + e, 'erro');
       })
       .salvarResponsavelCompleto(dados);
   } else {
-    // Demo/offline
-    var idDemo = 'resp_' + Date.now();
-    ESTADO.responsaveis.push({ id: idDemo, nome: nome, email: email, cargo: cargo });
-    popularCheckboxesResponsaveis('novoProjetoResponsaveisContainer', []);
-    fecharModalNovoResponsavel();
-    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Criar Responsável'; }
-    mostrarToast('Responsável "' + nome + '" criado (demo)', 'sucesso');
+    var idDemo = _editandoResponsavelId || ('resp_' + Date.now());
+    _aoSalvar({ sucesso: true, id: idDemo });
   }
 }
 
@@ -5812,6 +5574,593 @@ function aplicarTemaClassico() { aplicarTema('cafe'); }
 function _injetarCssAzul()    { _ativarTema('azul'); }
 function _removerCssAzul()    { _ativarTema('cafe'); }
 
+// ========================= MÓDULO: DOCUMENTOS DO DRIVE =========================
+
+var _docsDriveProjetoId   = null;
+var _docsDriveFileEditId  = null; // fileId do texto em edição (null = novo)
+var _docsDriveArquivos    = [];   // cache da lista de arquivos
+
+// ── Abrir / Fechar Modal ──────────────────────────────────────────────────────
+
+function abrirModalDocsDrive(projetoId, nomeProjeto) {
+  _docsDriveProjetoId  = projetoId;
+  _docsDriveFileEditId = null;
+  _docsDriveArquivos   = [];
+
+  var el = document.getElementById('docsDriveProjNome');
+  if (el) el.textContent = nomeProjeto || '';
+
+  // Mostrar estado de carregamento ANTES de abrir o modal
+  document.getElementById('docsDriveSemPasta').style.display  = 'none';
+  document.getElementById('docsDriveComPasta').style.display  = 'none';
+  _docsViewerMostrar('placeholder');
+  _mostrarSpinnerDocs(true);
+
+  abrirModal('modalDocumentosDrive');
+
+  // Aguardar a transição do modal antes de renderizar o conteúdo
+  // (evita o bug de botões só aparecerem ao mover o mouse)
+  setTimeout(function() { _docsCarregarLista(); }, 120);
+}
+
+function fecharModalDocsDrive() {
+  fecharModal('modalDocumentosDrive');
+  _docsLimparEditorArea();
+  var iframe = document.getElementById('docsDriveIframeEl');
+  if (iframe) iframe.src = '';
+}
+
+// ── Spinner interno do modal ──────────────────────────────────────────────────
+
+function _mostrarSpinnerDocs(sim, texto) {
+  var spinner = document.getElementById('docsDriveSpinner');
+  var body    = document.querySelector('.modal-docs-drive-body');
+  var txtEl   = document.getElementById('docsSpinnerTexto');
+  var progBar = document.getElementById('docsUploadProgressBar');
+  if (spinner) spinner.style.display = sim ? 'flex' : 'none';
+  if (body)    body.style.display    = sim ? 'none' : 'flex';
+  if (txtEl)   txtEl.textContent     = texto || 'Carregando documentos...';
+  if (!sim && progBar) { progBar.style.display = 'none'; }
+}
+
+// ── Carregar lista de arquivos ────────────────────────────────────────────────
+
+function _docsCarregarLista() {
+  document.getElementById('docsDriveSemPasta').style.display = 'none';
+  document.getElementById('docsDriveComPasta').style.display = 'none';
+  _mostrarSpinnerDocs(true);
+
+  if (typeof google === 'undefined' || !google.script) {
+    _mostrarSpinnerDocs(false);
+    document.getElementById('docsDriveComPasta').style.display = '';
+    document.getElementById('docsDriveCarregando').style.display = 'none';
+    document.getElementById('docsDriveListaArquivos').innerHTML =
+      '<div class="drive-docs-carregando" style="justify-content:center;padding:20px;">Disponível apenas no ambiente publicado</div>';
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      _mostrarSpinnerDocs(false);
+      if (!res.sucesso) {
+        mostrarToast('Erro ao carregar documentos: ' + res.mensagem, 'erro');
+        return;
+      }
+      if (!res.temPasta) {
+        document.getElementById('docsDriveSemPasta').style.display = '';
+        return;
+      }
+      document.getElementById('docsDriveComPasta').style.display = '';
+      document.getElementById('docsDriveCarregando').style.display = 'none';
+      var linkEl = document.getElementById('docsDriveLinkPasta');
+      if (linkEl) linkEl.href = res.link || '#';
+      _docsDriveArquivos = res.arquivos || [];
+      _docsRenderizarLista(_docsDriveArquivos);
+    })
+    .withFailureHandler(function(e) {
+      _mostrarSpinnerDocs(false);
+      mostrarToast('Erro: ' + e, 'erro');
+    })
+    .listarDocumentosDrive(SESSAO_TOKEN, _docsDriveProjetoId);
+}
+
+function _docsRenderizarLista(arquivos) {
+  var container = document.getElementById('docsDriveListaArquivos');
+  if (!container) return;
+
+  if (arquivos.length === 0) {
+    container.innerHTML = '<div class="drive-docs-vazio"><i class="fas fa-file-alt"></i><p>Nenhum documento na pasta</p></div>';
+    return;
+  }
+
+  var html = '';
+  arquivos.forEach(function(f) {
+    var icone      = _iconeArquivoDrive(f.mimeType);
+    var tamanhoFmt = _formatarTamanhoArquivo(f.tamanho);
+    var isTexto    = f.mimeType && (f.mimeType.startsWith('text/') || f.mimeType === 'application/json');
+    html += '<div class="drive-doc-item" id="driveDocItem_' + f.id + '">';
+    html += '<i class="fas fa-' + icone + ' drive-doc-icone"></i>';
+    html += '<div class="drive-doc-info" onclick="visualizarDocumentoDrive(\'' + f.id + '\', \'' + f.nome.replace(/'/g, "\\'") + '\', \'' + f.mimeType + '\')" style="cursor:pointer;">';
+    html += '<span class="drive-doc-nome" title="' + f.nome + '">' + f.nome + '</span>';
+    html += '<span class="drive-doc-meta">' + tamanhoFmt + ' · ' + f.dataModificacao + '</span>';
+    html += '</div>';
+    html += '<div class="drive-doc-acoes">';
+    if (isTexto) {
+      html += '<button class="btn-drive-acao" onclick="editarTextoExistente(\'' + f.id + '\', \'' + f.nome.replace(/'/g, "\\'") + '\')" title="Editar"><i class="fas fa-pencil-alt"></i></button>';
+    }
+    html += '<button class="btn-drive-acao btn-drive-remover" onclick="removerDocumentoDriveUI(\'' + f.id + '\', \'' + f.nome.replace(/'/g, "\\'") + '\')" title="Remover"><i class="fas fa-trash-alt"></i></button>';
+    html += '</div>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+// ── Visualizador ──────────────────────────────────────────────────────────────
+
+function _docsViewerMostrar(qual) {
+  var ids = ['docsDriveViewerPlaceholder', 'docsDriveEditorContainer', 'docsDriveImagemContainer', 'docsDriveIframeContainer'];
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  var alvo = {
+    placeholder: 'docsDriveViewerPlaceholder',
+    editor:      'docsDriveEditorContainer',
+    imagem:      'docsDriveImagemContainer',
+    iframe:      'docsDriveIframeContainer'
+  }[qual];
+  if (alvo) document.getElementById(alvo).style.display = '';
+}
+
+function _docsEscapeHtml(texto) {
+  return String(texto || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function _docsTextoParaHtmlEditavel(texto) {
+  var linhas = _docsEscapeHtml(texto).split(/\r?\n/);
+  var html = linhas.map(function(linha) {
+    return linha ? '<p>' + linha + '</p>' : '<p><br></p>';
+  }).join('');
+  return html || '<p><br></p>';
+}
+
+function _docsExtrairHtmlEditavel(conteudoHtml) {
+  var html = String(conteudoHtml || '').trim();
+  if (!html) return '<p><br></p>';
+
+  try {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    var temDocumentoCompleto = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i.test(html);
+    var baseHtml = temDocumentoCompleto && doc.body ? doc.body.innerHTML : html;
+    var container = document.createElement('div');
+
+    container.innerHTML = baseHtml;
+    container.querySelectorAll('style,script,link,meta,title,base').forEach(function(no) {
+      no.remove();
+    });
+
+    return (container.innerHTML || '').trim() || '<p><br></p>';
+  } catch (e) {
+    return html
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+      .trim() || '<p><br></p>';
+  }
+}
+
+function _docsLimparEditorArea() {
+  var area = document.getElementById('docsDriveEditorArea');
+  if (area) area.innerHTML = '<p><br></p>';
+}
+
+function visualizarDocumentoDrive(fileId, nome, mimeType) {
+  document.querySelectorAll('.drive-doc-item').forEach(function(el) { el.classList.remove('ativo'); });
+  var item = document.getElementById('driveDocItem_' + fileId);
+  if (item) item.classList.add('ativo');
+
+  _docsDriveFileEditId = null;
+
+  mostrarProcessando('Carregando documento...');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      esconderProcessando();
+      if (!res.sucesso) { mostrarToast('Erro: ' + res.mensagem, 'erro'); return; }
+
+      if (res.tipo === 'texto') {
+        _docsDriveFileEditId = fileId;
+        var nomeBase = nome.replace(/\.(html|txt)$/i, '');
+        document.getElementById('docsDriveEditorNome').value = nomeBase;
+        // HTML files → load as innerHTML; plain text → wrap in <p>
+        var isHtml = (mimeType === 'text/html' || nome.match(/\.html?$/i));
+        var area = document.getElementById('docsDriveEditorArea');
+        area.innerHTML = isHtml
+          ? _docsExtrairHtmlEditavel(res.conteudo)
+          : _docsTextoParaHtmlEditavel(res.conteudo);
+        _docsViewerMostrar('editor');
+        docsAtualizarToolbar();
+      } else if (res.tipo === 'imagem') {
+        document.getElementById('docsDriveImagemNome').textContent = nome;
+        document.getElementById('docsDriveImagemEl').src = res.conteudo;
+        _docsViewerMostrar('imagem');
+      } else {
+        document.getElementById('docsDriveIframeNome').textContent = nome;
+        document.getElementById('docsDriveIframeEl').src = res.url;
+        _docsViewerMostrar('iframe');
+      }
+    })
+    .withFailureHandler(function(e) {
+      esconderProcessando();
+      mostrarToast('Erro ao carregar: ' + e, 'erro');
+    })
+    .obterConteudoDocumentoDrive(SESSAO_TOKEN, fileId);
+}
+
+// ── Editor de texto rico ──────────────────────────────────────────────────────
+
+function abrirNovoTextoEditor() {
+  _docsDriveFileEditId = null;
+  document.getElementById('docsDriveEditorNome').value = '';
+  var area = document.getElementById('docsDriveEditorArea');
+  area.innerHTML = '<p><br></p>';
+  document.querySelectorAll('.drive-doc-item').forEach(function(el) { el.classList.remove('ativo'); });
+  _docsViewerMostrar('editor');
+  setTimeout(function() {
+    area.focus();
+    docsAtualizarToolbar();
+  }, 50);
+}
+
+function editarTextoExistente(fileId, nome) {
+  visualizarDocumentoDrive(fileId, nome, 'text/html');
+}
+
+function fecharEditorTexto() {
+  _docsDriveFileEditId = null;
+  _docsLimparEditorArea();
+  _docsViewerMostrar('placeholder');
+  document.querySelectorAll('.drive-doc-item').forEach(function(el) { el.classList.remove('ativo'); });
+}
+
+function salvarDocumentoTexto() {
+  var nome     = (document.getElementById('docsDriveEditorNome').value || '').trim();
+  var area     = document.getElementById('docsDriveEditorArea');
+  // Embalar o HTML num template completo com estilos básicos para preservar formatação
+  var conteudo = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+    'body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.6;color:#1a1a1a;max-width:780px;margin:40px auto;padding:0 24px;}' +
+    'h1{font-size:2em;margin:.67em 0}h2{font-size:1.5em}h3{font-size:1.17em}h4{font-size:1em}' +
+    'blockquote{border-left:4px solid #ccc;margin:1em 0;padding:.5em 1em;color:#555;background:#f9f9f9;}' +
+    'pre{background:#f4f4f4;padding:12px;border-radius:4px;overflow-x:auto;font-family:monospace;}' +
+    'table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px 12px;}' +
+    '</style></head><body>' + area.innerHTML + '</body></html>';
+
+  if (!nome) { mostrarToast('Informe um nome para o documento.', 'aviso'); return; }
+
+  mostrarProcessando('Salvando...');
+
+  if (_docsDriveFileEditId) {
+    var fileId   = _docsDriveFileEditId;
+    var nomeHtml = nome.endsWith('.html') ? nome : nome + '.html';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        esconderProcessando();
+        if (res.sucesso) {
+          mostrarToast('Documento salvo!', 'sucesso');
+          var arquivoAtual = _docsDriveArquivos.find(function(a) { return a.id === fileId; });
+          var nomeAtual    = arquivoAtual ? arquivoAtual.nome : '';
+          if (nomeHtml !== nomeAtual) {
+            google.script.run
+              .withSuccessHandler(function() { _docsCarregarLista(); })
+              .renomearDocumentoDrive(SESSAO_TOKEN, fileId, nomeHtml);
+          } else {
+            _docsCarregarLista();
+          }
+        } else {
+          mostrarToast('Erro: ' + res.mensagem, 'erro');
+        }
+      })
+      .withFailureHandler(function(e) { esconderProcessando(); mostrarToast('Erro: ' + e, 'erro'); })
+      .atualizarTextoNaDrive(SESSAO_TOKEN, fileId, conteudo);
+  } else {
+    // Criar novo
+    google.script.run
+      .withSuccessHandler(function(res) {
+        esconderProcessando();
+        if (res.sucesso) {
+          mostrarToast('Documento criado!', 'sucesso');
+          _docsDriveFileEditId = res.arquivo.id;
+          _docsCarregarLista();
+        } else {
+          mostrarToast('Erro: ' + res.mensagem, 'erro');
+        }
+      })
+      .withFailureHandler(function(e) { esconderProcessando(); mostrarToast('Erro: ' + e, 'erro'); })
+      .salvarTextoNaDrive(SESSAO_TOKEN, _docsDriveProjetoId, nome + '.html', conteudo, 'text/html');
+  }
+}
+
+// ── Comandos do editor rico ───────────────────────────────────────────────────
+
+function _docsEditorEl() { return document.getElementById('docsDriveEditorArea'); }
+
+function docCmd(command) {
+  _docsEditorEl().focus();
+  document.execCommand(command, false, null);
+  docsAtualizarToolbar();
+}
+
+function docCmdVal(command, value) {
+  _docsEditorEl().focus();
+  document.execCommand(command, false, value);
+  docsAtualizarToolbar();
+}
+
+function docAplicarTamanho(px) {
+  // execCommand fontSize usa escala 1-7; usamos inline style para tamanho em pt
+  var sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  var range = sel.getRangeAt(0);
+  if (range.collapsed) return;
+  var span = document.createElement('span');
+  span.style.fontSize = px + 'pt';
+  try { range.surroundContents(span); } catch(e) {
+    document.execCommand('fontSize', false, '3'); // fallback
+  }
+  docsAtualizarToolbar();
+}
+
+function docInserirLinha() {
+  _docsEditorEl().focus();
+  document.execCommand('insertHorizontalRule', false, null);
+}
+
+function docInserirLink() {
+  var url = prompt('URL do link (ex: https://exemplo.com):', 'https://');
+  if (url && url !== 'https://') {
+    _docsEditorEl().focus();
+    document.execCommand('createLink', false, url);
+  }
+}
+
+function docInserirTabela() {
+  var html = '<table><tr><th>Coluna 1</th><th>Coluna 2</th><th>Coluna 3</th></tr>' +
+             '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>' +
+             '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table><p><br></p>';
+  _docsEditorEl().focus();
+  document.execCommand('insertHTML', false, html);
+}
+
+function docsEditorKeydown(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+  }
+  // Ctrl+S → salvar
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    salvarDocumentoTexto();
+  }
+}
+
+function docsAtualizarToolbar() {
+  // Botões toggle (bold, italic, etc.)
+  ['bold','italic','underline','strikeThrough',
+   'justifyLeft','justifyCenter','justifyRight','justifyFull',
+   'insertUnorderedList','insertOrderedList'].forEach(function(cmd) {
+    var btn = document.querySelector('#docsEditorToolbar [data-cmd="' + cmd + '"]');
+    if (btn) {
+      try { btn.classList.toggle('ativo', document.queryCommandState(cmd)); } catch(e) {}
+    }
+  });
+  // Block format select
+  var blockSel = document.getElementById('docsBlockFormat');
+  if (blockSel) {
+    try {
+      var val = document.queryCommandValue('formatBlock').toLowerCase().replace(/^<|>$/g, '');
+      blockSel.value = val || 'p';
+    } catch(e) {}
+  }
+}
+
+// ── Criar pasta para projeto sem pasta ───────────────────────────────────────
+
+function criarPastaProjetoUI(projetoId) {
+  mostrarProcessando('Criando pasta no Drive...');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      esconderProcessando();
+      if (res.sucesso) {
+        mostrarToast('Pasta criada!', 'sucesso');
+        var proj = ESTADO.listaProjetos.find(function(p) { return p.id === projetoId; });
+        if (proj) proj.link = res.link;
+        if (ESTADO.projeto && ESTADO.projeto.id === projetoId) ESTADO.projeto.link = res.link;
+        renderizarDiagrama();
+        _docsCarregarLista();
+      } else {
+        mostrarToast('Erro: ' + res.mensagem, 'erro');
+      }
+    })
+    .withFailureHandler(function(e) { esconderProcessando(); mostrarToast('Erro: ' + e, 'erro'); })
+    .criarPastaProjetoDrive(SESSAO_TOKEN, projetoId);
+}
+
+// ── Upload de arquivo ─────────────────────────────────────────────────────────
+
+var _UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB por chunk
+
+function processarUploadDrive(projetoId, input) {
+  var file = input.files[0];
+  if (!file) return;
+
+  var MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+  if (file.size > MAX_SIZE) {
+    mostrarToast('Arquivo muito grande. Máximo: 100 MB.', 'erro');
+    input.value = '';
+    return;
+  }
+
+  _mostrarSpinnerDocs(true, 'Enviando arquivo...');
+
+  if (file.size <= _UPLOAD_CHUNK_SIZE) {
+    // Arquivo pequeno: envio único
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          _mostrarSpinnerDocs(false);
+          input.value = '';
+          if (res.sucesso) { mostrarToast('Arquivo enviado!', 'sucesso'); _docsCarregarLista(); }
+          else              { mostrarToast('Erro: ' + res.mensagem, 'erro'); }
+        })
+        .withFailureHandler(function(err) {
+          _mostrarSpinnerDocs(false);
+          input.value = '';
+          mostrarToast('Erro ao enviar: ' + err, 'erro');
+        })
+        .uploadDocumentoDrive(SESSAO_TOKEN, projetoId, file.name, e.target.result, file.type);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    // Arquivo grande: upload em chunks
+    var totalChunks = Math.ceil(file.size / _UPLOAD_CHUNK_SIZE);
+    _setProgressoUpload(0, 'Iniciando envio...');
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res.sucesso) {
+          _mostrarSpinnerDocs(false);
+          input.value = '';
+          mostrarToast('Erro ao iniciar upload: ' + res.mensagem, 'erro');
+          return;
+        }
+        _enviarChunkLoop(projetoId, file, totalChunks, input, res.uploadId, res.folderId, 0);
+      })
+      .withFailureHandler(function(err) {
+        _mostrarSpinnerDocs(false);
+        input.value = '';
+        mostrarToast('Erro ao iniciar upload: ' + err, 'erro');
+      })
+      .iniciarUploadChunked(SESSAO_TOKEN, projetoId);
+  }
+}
+
+function _setProgressoUpload(percent, texto) {
+  var bar  = document.getElementById('docsUploadProgressBar');
+  var fill = document.getElementById('docsUploadProgressFill');
+  var txt  = document.getElementById('docsUploadProgressTexto');
+  if (bar)  bar.style.display = percent >= 0 ? 'block' : 'none';
+  if (fill) fill.style.width  = percent + '%';
+  if (txt)  txt.textContent   = texto;
+}
+
+function _enviarChunkLoop(projetoId, file, totalChunks, input, uploadId, folderId, idx) {
+  if (idx >= totalChunks) {
+    // Todos os chunks enviados — finalizar
+    _setProgressoUpload(99, 'Montando arquivo...');
+    google.script.run
+      .withSuccessHandler(function(res) {
+        _mostrarSpinnerDocs(false);
+        input.value = '';
+        if (res.sucesso) { mostrarToast('Arquivo enviado!', 'sucesso'); _docsCarregarLista(); }
+        else              { mostrarToast('Erro ao finalizar: ' + res.mensagem, 'erro'); }
+      })
+      .withFailureHandler(function(err) {
+        _mostrarSpinnerDocs(false);
+        input.value = '';
+        mostrarToast('Erro ao finalizar: ' + err, 'erro');
+      })
+      .finalizarUploadChunked(SESSAO_TOKEN, uploadId, totalChunks, folderId, file.name, file.type);
+    return;
+  }
+
+  var start = idx * _UPLOAD_CHUNK_SIZE;
+  var chunk = file.slice(start, Math.min(start + _UPLOAD_CHUNK_SIZE, file.size));
+  var pct   = Math.round((idx / totalChunks) * 95);
+  _setProgressoUpload(pct, 'Parte ' + (idx + 1) + ' de ' + totalChunks + '...');
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // readAsDataURL retorna "data:...;base64,<dados>" — enviar só o base64
+    var base64 = e.target.result.split(',')[1];
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res.sucesso) {
+          _mostrarSpinnerDocs(false);
+          input.value = '';
+          mostrarToast('Erro na parte ' + (idx + 1) + ': ' + res.mensagem, 'erro');
+          return;
+        }
+        _enviarChunkLoop(projetoId, file, totalChunks, input, uploadId, folderId, idx + 1);
+      })
+      .withFailureHandler(function(err) {
+        _mostrarSpinnerDocs(false);
+        input.value = '';
+        mostrarToast('Erro na parte ' + (idx + 1) + ': ' + err, 'erro');
+      })
+      .enviarChunkUpload(SESSAO_TOKEN, uploadId, idx, base64);
+  };
+  reader.readAsDataURL(chunk);
+}
+
+// ── Remover arquivo ───────────────────────────────────────────────────────────
+
+function removerDocumentoDriveUI(fileId, nomeArquivo) {
+  mostrarConfirm(
+    'Remover <strong>' + nomeArquivo + '</strong>?<br><span style="font-size:0.78rem;color:var(--cor-texto-secundario);">O arquivo será movido para a lixeira do Drive.</span>',
+    function() {
+      _mostrarSpinnerDocs(true, 'Removendo arquivo...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          _mostrarSpinnerDocs(false);
+          if (res.sucesso) {
+            mostrarToast('Arquivo removido.', 'sucesso');
+            if (_docsDriveFileEditId === fileId) fecharEditorTexto();
+            _docsCarregarLista();
+          } else {
+            mostrarToast('Erro: ' + res.mensagem, 'erro');
+          }
+        })
+        .withFailureHandler(function(e) { _mostrarSpinnerDocs(false); mostrarToast('Erro: ' + e, 'erro'); })
+        .removerDocumentoDrive(SESSAO_TOKEN, fileId);
+    },
+    'Remover'
+  );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function abrirAtasProjetoAtual() {
+  if (!ESTADO.projeto || !ESTADO.projeto.id) {
+    mostrarToast('Selecione um projeto primeiro.', 'aviso');
+    return;
+  }
+  abrirModalAtasProjeto(ESTADO.projeto.id, ESTADO.projeto.nome);
+}
+
+function _iconeArquivoDrive(mimeType) {
+  if (!mimeType) return 'file';
+  if (mimeType.includes('pdf'))                                              return 'file-pdf';
+  if (mimeType.startsWith('image/'))                                         return 'file-image';
+  if (mimeType.includes('word') || mimeType.includes('document'))            return 'file-word';
+  if (mimeType.includes('sheet') || mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'file-excel';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'file-powerpoint';
+  if (mimeType.startsWith('text/') || mimeType === 'application/json')      return 'file-alt';
+  if (mimeType.includes('zip') || mimeType.includes('compressed'))           return 'file-archive';
+  return 'file';
+}
+
+function _formatarTamanhoArquivo(bytes) {
+  if (!bytes || bytes === 0) return '—';
+  if (bytes < 1024)     return bytes + ' B';
+  if (bytes < 1048576)  return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
 // ========================= MÓDULO: ATAS DO PROJETO =========================
 
 /** Estado local do visualizador de atas */
@@ -5840,8 +6189,10 @@ function abrirModalAtasProjeto(projetoId, nomeProjeto, event) {
   // Resetar viewer
   _resetarViewerAtas();
 
-  modal.classList.add('visivel');
-  document.body.style.overflow = 'hidden';
+  if (!modal.classList.contains('visible')) {
+    modal.classList.add('visible');
+    _bloquearScrollPagina();
+  }
 
   // Buscar dados no backend
   if (typeof google !== 'undefined' && google.script) {
@@ -5865,8 +6216,10 @@ function abrirModalAtasProjeto(projetoId, nomeProjeto, event) {
 /** Fecha o modal de atas */
 function fecharModalAtasProjeto() {
   var modal = document.getElementById('modalAtasProjeto');
-  if (modal) modal.classList.remove('visivel');
-  document.body.style.overflow = '';
+  if (modal && modal.classList.contains('visible')) {
+    modal.classList.remove('visible');
+    _desbloquearScrollPagina();
+  }
   _atasProjetoEstado.reuniaoAtiva = null;
 }
 

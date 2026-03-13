@@ -264,6 +264,7 @@ function doGet(e) {
     tmpl.usuarioPerfil     = sessao.perfil;
     tmpl.modoAdmin         = (sessao.perfil === 'admin');
     tmpl.baseUrl           = obterUrlWebAppAtual();
+    tmpl.temaUsuario       = obterPreferenciaTema();
     // [] = sem restrição (admin sempre passa, usuário sem limitação também)
     tmpl.paginasPermitidas = JSON.stringify(
       sessao.perfil === 'admin' ? [] : (sessao.paginasPermitidas || [])
@@ -285,6 +286,7 @@ function _servirLogin(mensagemErro) {
   tmpl.mensagemErroUrl = mensagemErro || '';
   tmpl.tokenReset = '';
   tmpl.baseUrl = obterUrlWebAppAtual();
+  tmpl.gifData = _getLoginGifBase64_();
   return tmpl.evaluate()
     .setTitle('Smart Meeting - Login')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -296,10 +298,26 @@ function _servirReset(rt) {
   tmpl.mensagemErroUrl = '';
   tmpl.tokenReset = rt || '';
   tmpl.baseUrl = obterUrlWebAppAtual();
+  tmpl.gifData = _getLoginGifBase64_();
   return tmpl.evaluate()
     .setTitle('Smart Meeting - Redefinir Senha')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/**
+ * Lê o GIF da tela de login do Drive e retorna como base64.
+ * O base64 é injetado diretamente no HTML como data URL — sem CDN externo.
+ */
+function _getLoginGifBase64_() {
+  try {
+    const file = DriveApp.getFileById('1rZAlzAVCYaM9eOGebfh7N2w4AxYcFbsC');
+    const blob = file.getBlob();
+    return Utilities.base64Encode(blob.getBytes());
+  } catch (e) {
+    Logger.log('AVISO _getLoginGifBase64_: ' + e.toString());
+    return '';
+  }
 }
 
 function abrirPaginaRelatorios() {

@@ -25,13 +25,15 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <?!= include('PaginaProjetoDetalhe-CSS🟡'); ?>
+  <?!= include('ModalRelatorio-CSS🟡'); ?>
   <?!= include('TemaAzul-CSS'); ?>
   <?!= include('TemaPreto-CSS'); ?>
   <?!= include('Complemento-CSS'); ?>
   <script>
-    /* Desabilita todos os temas extras — JS os ativa conforme preferência do usuário */
-    document.getElementById('tema-azul-styles').disabled = true;
-    document.getElementById('tema-preto-styles').disabled = true;
+    /* Aplica tema salvo do servidor imediatamente — skeleton já renderiza com o tema correto */
+    var TEMA_INICIAL = '<?= temaUsuario ?>';
+    document.getElementById('tema-azul-styles').disabled  = (TEMA_INICIAL !== 'azul');
+    document.getElementById('tema-preto-styles').disabled = (TEMA_INICIAL !== 'preto');
   </script>
 </head>
 
@@ -97,9 +99,18 @@
                 <i class="fas fa-building"></i>
                 <span>Novo Setor</span>
               </button>
+              <button class="dropdown-criar-item" onclick="fecharDropdownCriar(); abrirModalGerenciarSetores()">
+                <i class="fas fa-pen-to-square"></i>
+                <span>Editar Setores</span>
+              </button>
+              <div style="height:1px;background:var(--cor-borda-clara);margin:3px 0;"></div>
               <button class="dropdown-criar-item" onclick="fecharDropdownCriar(); abrirModalNovoResponsavel()">
                 <i class="fas fa-user-plus"></i>
                 <span>Novo Responsável</span>
+              </button>
+              <button class="dropdown-criar-item" onclick="fecharDropdownCriar(); abrirModalGerenciarResponsaveis()">
+                <i class="fas fa-users-gear"></i>
+                <span>Editar Responsáveis</span>
               </button>
             </div>
           </div>
@@ -365,6 +376,10 @@
           <div class="coluna-header">
             <h3><i class="fas fa-sitemap"></i> Estrutura do Projeto</h3>
             <div class="coluna-acoes">
+              <button class="btn-acao-pequeno" onclick="abrirAtasProjetoAtual()" id="btnVerAtasEstrutura"
+                title="Ver atas e documentos das reuniões vinculadas ao projeto">
+                <i class="fas fa-book-open"></i> Ver Atas
+              </button>
               <button class="btn-acao-pequeno btn-modo-foco" onclick="abrirModoFoco()" id="btnModoFoco"
                 title="Modo Foco — visualizar projeto em tela cheia">
                 <i class="fas fa-expand-alt"></i> Foco
@@ -565,13 +580,6 @@
             </div>
           </div>
 
-          <!-- Link (Documentos do Projeto) -->
-          <div class="campo-grupo">
-            <label><i class="fas fa-folder-open" style="margin-right:4px;color:var(--cor-primaria);"></i> Documentos do Projeto</label>
-            <input type="url" id="itemLink" placeholder="https://drive.google.com/...">
-            <small class="campo-hint">Link para o diretório do projeto no Drive</small>
-          </div>
-
           <!-- Departamento -->
           <div class="campo-grupo" id="itemDepartamentoGrupo">
             <label><i class="fas fa-sitemap" style="margin-right:4px;color:var(--cor-primaria);"></i> Departamento</label>
@@ -627,7 +635,7 @@
 
 <!-- ==================== MODAL NOVO PROJETO ==================== -->
 <div id="modalNovoProjeto" class="modal-overlay">
-  <div class="modal-content" style="max-width:680px;">
+  <div class="modal-content" style="max-width:900px;width:96vw;">
     <div class="modal-header">
       <h3><i class="fas fa-folder-plus"></i> Novo Projeto</h3>
       <button class="btn-fechar-modal" onclick="fecharModalNovoProjeto()">
@@ -694,11 +702,6 @@
           </div>
         </div>
 
-        <div class="campo-grupo">
-          <label><i class="fas fa-folder-open" style="margin-right:4px;color:var(--cor-primaria);"></i> Documentos do Projeto</label>
-          <input type="url" id="novoProjetoLink" placeholder="https://drive.google.com/...">
-          <small class="campo-hint">Link para o diretório do projeto no Drive</small>
-        </div>
       </div>
 
       <!-- Cálculo de Prioridade GUT -->
@@ -920,120 +923,8 @@
     </div>
   </div>
 
-  <!-- ==================== MODAL RELATÓRIO DE PROJETOS ==================== -->
-  <div id="modalRelatorio" class="modal-overlay">
-    <div class="modal-content modal-relatorio-content">
+  <?!= include('ModalRelatorio🟡'); ?>
 
-      <div class="modal-header">
-        <h3><i class="fas fa-chart-bar"></i> Relatório de Projetos</h3>
-        <button class="btn-fechar-modal" onclick="fecharModal('modalRelatorio')"><i class="fas fa-times"></i></button>
-      </div>
-
-      <div class="modal-body" style="padding:0;">
-
-        <!-- Barra de ações rápidas -->
-        <div class="rel-toolbar">
-          <div class="rel-toolbar-info">
-            <i class="fas fa-info-circle" style="color:var(--cor-primaria);"></i>
-            <span id="relResumoSelecao">Selecione os filtros e projetos para incluir no relatório</span>
-          </div>
-          <button class="rel-btn-link" onclick="_relToggleAllProjetos(true)"><i class="fas fa-check-square"></i> Todos</button>
-          <button class="rel-btn-link" onclick="_relToggleAllProjetos(false)"><i class="fas fa-square"></i> Nenhum</button>
-        </div>
-
-        <div class="relatorio-grid">
-
-          <!-- ── COL ESQUERDA: Filtros ── -->
-          <div class="relatorio-col-filtros">
-
-            <div class="rel-secao">
-              <div class="rel-secao-titulo"><i class="fas fa-building"></i> Setores</div>
-              <div id="relFiltroSetores" class="rel-chips-group">
-                <span class="rel-chip ativo" onclick="_relToggleSetor('__todos__', this)">Todos</span>
-              </div>
-            </div>
-
-            <div class="rel-secao">
-              <div class="rel-secao-titulo">
-                <span><i class="fas fa-users"></i> Responsáveis</span>
-                <button class="rel-btn-link-sm" onclick="_relToggleAllResponsaveis()">Todos/Nenhum</button>
-              </div>
-              <div id="relFiltroResponsaveis" class="rel-check-list" style="max-height:150px;"></div>
-            </div>
-
-            <div class="rel-secao" style="border-bottom:none;margin-bottom:0;">
-              <div class="rel-secao-titulo"><i class="fas fa-sliders-h"></i> Conteúdo</div>
-              <div style="display:flex;flex-direction:column;gap:5px;">
-                <label class="rel-toggle-item">
-                  <input type="checkbox" id="relOpcApenasAtivos" checked>
-                  <span>Só atividades pendentes</span>
-                </label>
-                <label class="rel-toggle-item">
-                  <input type="checkbox" id="relOpcDescricao" checked>
-                  <span>Descrição dos projetos</span>
-                </label>
-                <label class="rel-toggle-item">
-                  <input type="checkbox" id="relOpcAtividades" checked>
-                  <span>Tabela de atividades</span>
-                </label>
-                <label class="rel-toggle-item">
-                  <input type="checkbox" id="relOpcPrioridade" checked>
-                  <span>Score de prioridade</span>
-                </label>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- ── COL DIREITA: Projetos + Email ── -->
-          <div class="relatorio-col-opcoes">
-
-            <!-- Projetos -->
-            <div class="rel-secao">
-              <div class="rel-secao-titulo">
-                <span><i class="fas fa-folder-open"></i> Projetos incluídos <span id="relContadorProjetos" class="rel-contador">0</span></span>
-              </div>
-              <div id="relListaProjetos" class="rel-check-list rel-projetos-list"></div>
-            </div>
-
-            <!-- Destinatários -->
-            <div class="rel-secao">
-              <div class="rel-secao-titulo"><i class="fas fa-paper-plane"></i> Enviar para</div>
-              <div id="relDestinatarios" class="rel-destinatarios-grid"></div>
-              <input type="text" id="relEmailsCC" placeholder="Emails em cópia (separados por vírgula)" style="margin-top:8px;font-size:0.8rem;">
-            </div>
-
-            <!-- Assunto e mensagem -->
-            <div class="rel-secao" style="border-bottom:none;margin-bottom:0;">
-              <div class="rel-secao-titulo"><i class="fas fa-envelope-open-text"></i> Mensagem</div>
-              <input type="text" id="relAssunto" placeholder="Assunto do email" style="font-size:0.8rem;margin-bottom:6px;">
-              <textarea id="relMensagem" rows="2" placeholder="Mensagem de abertura opcional (aparece no topo do email)" style="font-size:0.8rem;resize:none;"></textarea>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Área de preview (expande abaixo do grid) -->
-        <div id="relPreviewArea" class="rel-preview-area" style="display:none;"></div>
-
-      </div>
-
-      <div class="modal-footer" style="justify-content:space-between;">
-        <button class="btn-acao btn-secundario" onclick="fecharModal('modalRelatorio')">
-          <i class="fas fa-times"></i> Fechar
-        </button>
-        <div style="display:flex;gap:8px;">
-          <button class="btn-acao btn-secundario" onclick="_relGerarPreview()" id="btnRelPreview">
-            <i class="fas fa-eye"></i> Pré-visualizar
-          </button>
-          <button class="btn-acao" onclick="_relEnviarEmail()" id="btnRelEnviar">
-            <i class="fas fa-paper-plane"></i> Enviar por Email
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </div>
 
   <!-- ==================== MODAL LIXEIRA ==================== -->
   <div id="modalLixeira" class="modal-overlay">
@@ -1322,7 +1213,7 @@
   <div id="modalNovoSetor" class="modal-overlay">
     <div class="modal-content" style="max-width:460px;">
       <div class="modal-header">
-        <h3><i class="fas fa-building"></i> Novo Setor</h3>
+        <h3 id="modalNovoSetorTitulo"><i class="fas fa-building"></i> Novo Setor</h3>
         <button class="btn-fechar-modal" onclick="fecharModalNovoSetor()">
           <i class="fas fa-times"></i>
         </button>
@@ -1339,18 +1230,18 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secundario" onclick="fecharModalNovoSetor()">Cancelar</button>
-        <button class="btn-acao" onclick="salvarNovoSetor()">
+        <button class="btn-acao" id="modalNovoSetorBtnSalvar" onclick="salvarNovoSetor()">
           <i class="fas fa-save"></i> Criar Setor
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ==================== MODAL NOVO RESPONSÁVEL ==================== -->
+  <!-- ==================== MODAL NOVO / EDITAR RESPONSÁVEL ==================== -->
   <div id="modalNovoResponsavel" class="modal-overlay">
     <div class="modal-content" style="max-width:460px;">
       <div class="modal-header">
-        <h3><i class="fas fa-user-plus"></i> Novo Responsável</h3>
+        <h3 id="modalNovoResponsavelTitulo"><i class="fas fa-user-plus"></i> Novo Responsável</h3>
         <button class="btn-fechar-modal" onclick="fecharModalNovoResponsavel()">
           <i class="fas fa-times"></i>
         </button>
@@ -1371,9 +1262,295 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secundario" onclick="fecharModalNovoResponsavel()">Cancelar</button>
-        <button class="btn-acao" onclick="salvarNovoResponsavel()">
+        <button class="btn-acao" id="modalNovoResponsavelBtnSalvar" onclick="salvarNovoResponsavel()">
           <i class="fas fa-save"></i> Criar Responsável
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL GERENCIAR SETORES ==================== -->
+  <div id="modalGerenciarSetores" class="modal-overlay">
+    <div class="modal-content" style="max-width:560px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-building"></i> Gerenciar Setores</h3>
+        <button class="btn-fechar-modal" onclick="fecharModal('modalGerenciarSetores')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="padding:12px 18px;">
+        <div style="margin-bottom:12px;display:flex;justify-content:flex-end;">
+          <button class="btn-acao" style="font-size:0.8rem;padding:6px 14px;" onclick="fecharModal('modalGerenciarSetores'); abrirModalNovoSetor()">
+            <i class="fas fa-plus"></i> Novo Setor
+          </button>
+        </div>
+        <div id="listaGerenciarSetores"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secundario" onclick="fecharModal('modalGerenciarSetores')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL GERENCIAR RESPONSÁVEIS ==================== -->
+  <div id="modalGerenciarResponsaveis" class="modal-overlay">
+    <div class="modal-content" style="max-width:620px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-users"></i> Gerenciar Responsáveis</h3>
+        <button class="btn-fechar-modal" onclick="fecharModal('modalGerenciarResponsaveis')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="padding:12px 18px;">
+        <div style="margin-bottom:12px;display:flex;justify-content:flex-end;">
+          <button class="btn-acao" style="font-size:0.8rem;padding:6px 14px;" onclick="fecharModal('modalGerenciarResponsaveis'); abrirModalNovoResponsavel()">
+            <i class="fas fa-plus"></i> Novo Responsável
+          </button>
+        </div>
+        <div id="listaGerenciarResponsaveis"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secundario" onclick="fecharModal('modalGerenciarResponsaveis')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DOCUMENTOS DO DRIVE ==================== -->
+  <div id="modalDocumentosDrive" class="modal-overlay">
+    <div class="modal-content modal-docs-drive-content">
+
+      <div class="modal-header">
+        <h3>
+          <i class="fas fa-folder-open" style="color:var(--cor-destaque);"></i>
+          Documentos — <span id="docsDriveProjNome">Projeto</span>
+        </h3>
+        <button class="btn-fechar-modal" onclick="fecharModalDocsDrive()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Spinner de carregamento inicial (cobre todo o body) -->
+      <div id="docsDriveSpinner" class="docs-drive-spinner-overlay">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span id="docsSpinnerTexto">Carregando documentos...</span>
+        <div id="docsUploadProgressBar" style="display:none; width:260px; margin-top:10px;">
+          <div style="background:var(--cor-borda);border-radius:4px;height:6px;overflow:hidden;">
+            <div id="docsUploadProgressFill" style="height:100%;width:0%;background:var(--cor-destaque);border-radius:4px;transition:width 0.3s;"></div>
+          </div>
+          <div id="docsUploadProgressTexto" style="font-size:0.75rem;color:var(--cor-texto-secundario);text-align:center;margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <div class="modal-docs-drive-body">
+
+        <!-- Painel esquerdo: lista de arquivos -->
+        <div class="docs-drive-painel-lista">
+
+          <!-- Estado: sem pasta -->
+          <div id="docsDriveSemPasta" style="display:none;">
+            <div class="drive-docs-sem-pasta">
+              <i class="fas fa-folder-plus drive-docs-sem-pasta-icone"></i>
+              <p>Este projeto não tem pasta no Drive para salvar documentos</p>
+              <button class="btn-acao" onclick="criarPastaProjetoUI(_docsDriveProjetoId)" style="margin-top:12px;">
+                <i class="fas fa-plus"></i> Criar Pasta
+              </button>
+            </div>
+          </div>
+
+          <!-- Estado: com pasta -->
+          <div id="docsDriveComPasta" style="display:none;">
+            <div class="docs-drive-toolbar">
+              <button class="btn-acao-pequeno" onclick="abrirNovoTextoEditor()">
+                <i class="fas fa-file-edit"></i> Novo Texto
+              </button>
+              <label class="btn-acao-pequeno docs-upload-label" title="Enviar arquivo">
+                <i class="fas fa-upload"></i> Upload
+                <input type="file" id="docsDriveFileInput" style="display:none;"
+                       onchange="processarUploadDrive(_docsDriveProjetoId, this)">
+              </label>
+              <a id="docsDriveLinkPasta" href="#" target="_blank" class="btn-drive-ver-pasta" title="Abrir pasta no Drive">
+                <i class="fas fa-external-link-alt"></i>
+              </a>
+            </div>
+            <div id="docsDriveCarregando" class="drive-docs-carregando">
+              <i class="fas fa-spinner fa-spin"></i> Carregando documentos...
+            </div>
+            <div id="docsDriveListaArquivos" class="docs-drive-lista-arquivos"></div>
+          </div>
+
+        </div>
+
+        <!-- Painel direito: viewer / editor -->
+        <div class="docs-drive-painel-viewer" id="docsDriveViewer">
+
+          <!-- Placeholder -->
+          <div id="docsDriveViewerPlaceholder" class="docs-viewer-placeholder">
+            <i class="fas fa-file-alt"></i>
+            <p>Selecione um documento para visualizar</p>
+          </div>
+
+          <!-- Editor de texto rico (novo ou editar) -->
+          <div id="docsDriveEditorContainer" style="display:none;" class="docs-editor-container">
+
+            <!-- Barra de nome + ações -->
+            <div class="docs-editor-nome-bar">
+              <input type="text" id="docsDriveEditorNome" placeholder="Nome do documento..." class="docs-editor-nome-input">
+              <button class="btn-acao docs-btn-salvar" onclick="salvarDocumentoTexto()">
+                <i class="fas fa-save"></i> Salvar
+              </button>
+              <button class="btn-secundario" onclick="fecharEditorTexto()" title="Fechar">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+
+            <!-- Toolbar rica -->
+            <div class="docs-editor-toolbar" id="docsEditorToolbar">
+
+              <!-- Histórico -->
+              <div class="docs-tb-grupo">
+                <button class="docs-tb-btn" onclick="docCmd('undo')" title="Desfazer (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+                <button class="docs-tb-btn" onclick="docCmd('redo')" title="Refazer (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Fonte + Tamanho -->
+              <div class="docs-tb-grupo">
+                <select id="docsFontFamily" class="docs-tb-select docs-tb-font" onchange="docCmdVal('fontName',this.value)" title="Família da fonte">
+                  <option value="Arial">Arial</option>
+                  <option value="'Times New Roman',serif">Times New Roman</option>
+                  <option value="Georgia,serif">Georgia</option>
+                  <option value="Verdana,sans-serif">Verdana</option>
+                  <option value="Tahoma,sans-serif">Tahoma</option>
+                  <option value="'Courier New',monospace">Courier New</option>
+                  <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+                </select>
+                <select id="docsFontSize" class="docs-tb-select docs-tb-size" onchange="docAplicarTamanho(this.value)" title="Tamanho">
+                  <option value="10">10</option>
+                  <option value="12" selected>12</option>
+                  <option value="14">14</option>
+                  <option value="16">16</option>
+                  <option value="18">18</option>
+                  <option value="20">20</option>
+                  <option value="24">24</option>
+                  <option value="28">28</option>
+                  <option value="32">32</option>
+                  <option value="36">36</option>
+                  <option value="48">48</option>
+                  <option value="60">60</option>
+                </select>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Formatação básica -->
+              <div class="docs-tb-grupo">
+                <button class="docs-tb-btn" data-cmd="bold"          onclick="docCmd('bold')"          title="Negrito (Ctrl+B)"><i class="fas fa-bold"></i></button>
+                <button class="docs-tb-btn" data-cmd="italic"        onclick="docCmd('italic')"        title="Itálico (Ctrl+I)"><i class="fas fa-italic"></i></button>
+                <button class="docs-tb-btn" data-cmd="underline"     onclick="docCmd('underline')"     title="Sublinhado (Ctrl+U)"><i class="fas fa-underline"></i></button>
+                <button class="docs-tb-btn" data-cmd="strikeThrough" onclick="docCmd('strikeThrough')" title="Tachado"><i class="fas fa-strikethrough"></i></button>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Cores -->
+              <div class="docs-tb-grupo">
+                <label class="docs-tb-btn docs-color-btn" title="Cor do texto">
+                  <i class="fas fa-font"></i>
+                  <span class="docs-color-bar" id="docsCorTextoBar" style="background:#1a1a1a;"></span>
+                  <input type="color" id="docsCorTexto" value="#1a1a1a"
+                         oninput="docCmdVal('foreColor',this.value);document.getElementById('docsCorTextoBar').style.background=this.value">
+                </label>
+                <label class="docs-tb-btn docs-color-btn" title="Cor de realce">
+                  <i class="fas fa-highlighter"></i>
+                  <span class="docs-color-bar" id="docsCorFundoBar" style="background:#fff176;"></span>
+                  <input type="color" id="docsCorFundo" value="#fff176"
+                         oninput="docCmdVal('hiliteColor',this.value);document.getElementById('docsCorFundoBar').style.background=this.value">
+                </label>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Estilo de parágrafo -->
+              <div class="docs-tb-grupo">
+                <select id="docsBlockFormat" class="docs-tb-select docs-tb-block" onchange="docCmdVal('formatBlock',this.value)" title="Estilo do parágrafo">
+                  <option value="p">Normal</option>
+                  <option value="h1">Título 1</option>
+                  <option value="h2">Título 2</option>
+                  <option value="h3">Título 3</option>
+                  <option value="h4">Título 4</option>
+                  <option value="blockquote">Citação</option>
+                  <option value="pre">Código</option>
+                </select>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Alinhamento -->
+              <div class="docs-tb-grupo">
+                <button class="docs-tb-btn" data-cmd="justifyLeft"   onclick="docCmd('justifyLeft')"   title="Esquerda"><i class="fas fa-align-left"></i></button>
+                <button class="docs-tb-btn" data-cmd="justifyCenter" onclick="docCmd('justifyCenter')" title="Centro"><i class="fas fa-align-center"></i></button>
+                <button class="docs-tb-btn" data-cmd="justifyRight"  onclick="docCmd('justifyRight')"  title="Direita"><i class="fas fa-align-right"></i></button>
+                <button class="docs-tb-btn" data-cmd="justifyFull"   onclick="docCmd('justifyFull')"   title="Justificar"><i class="fas fa-align-justify"></i></button>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Listas e recuo -->
+              <div class="docs-tb-grupo">
+                <button class="docs-tb-btn" data-cmd="insertUnorderedList" onclick="docCmd('insertUnorderedList')" title="Lista com marcadores"><i class="fas fa-list-ul"></i></button>
+                <button class="docs-tb-btn" data-cmd="insertOrderedList"   onclick="docCmd('insertOrderedList')"   title="Lista numerada"><i class="fas fa-list-ol"></i></button>
+                <button class="docs-tb-btn" onclick="docCmd('indent')"   title="Aumentar recuo"><i class="fas fa-indent"></i></button>
+                <button class="docs-tb-btn" onclick="docCmd('outdent')"  title="Diminuir recuo"><i class="fas fa-outdent"></i></button>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Inserir -->
+              <div class="docs-tb-grupo">
+                <button class="docs-tb-btn" onclick="docInserirLinha()"   title="Linha horizontal"><i class="fas fa-minus"></i></button>
+                <button class="docs-tb-btn" onclick="docInserirLink()"    title="Inserir link"><i class="fas fa-link"></i></button>
+                <button class="docs-tb-btn" onclick="docInserirTabela()"  title="Inserir tabela"><i class="fas fa-table"></i></button>
+              </div>
+              <span class="docs-tb-sep"></span>
+
+              <!-- Limpar -->
+              <div class="docs-tb-grupo">
+                <button class="docs-tb-btn" onclick="docCmd('removeFormat')" title="Limpar formatação"><i class="fas fa-remove-format"></i></button>
+              </div>
+
+            </div><!-- /toolbar -->
+
+            <!-- Régua de página (decorativa) -->
+            <div class="docs-editor-regua"></div>
+
+            <!-- Área de edição -->
+            <div class="docs-editor-scroll">
+              <div id="docsDriveEditorArea"
+                   class="docs-editor-area"
+                   contenteditable="true"
+                   data-placeholder="Comece a escrever seu documento aqui..."
+                   onmouseup="docsAtualizarToolbar()"
+                   onkeyup="docsAtualizarToolbar()"
+                   onkeydown="docsEditorKeydown(event)"></div>
+            </div>
+
+          </div>
+
+          <!-- Viewer de imagem -->
+          <div id="docsDriveImagemContainer" style="display:none;" class="docs-viewer-imagem-container">
+            <div class="docs-viewer-header">
+              <i class="fas fa-image"></i>
+              <span id="docsDriveImagemNome"></span>
+            </div>
+            <div class="docs-viewer-imagem-body">
+              <img id="docsDriveImagemEl" src="" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">
+            </div>
+          </div>
+
+          <!-- Viewer iframe (PDF / outros) -->
+          <div id="docsDriveIframeContainer" style="display:none;" class="docs-viewer-iframe-container">
+            <div class="docs-viewer-header">
+              <i class="fas fa-file-pdf"></i>
+              <span id="docsDriveIframeNome"></span>
+            </div>
+            <iframe id="docsDriveIframeEl" src="" class="docs-viewer-iframe" allowfullscreen></iframe>
+          </div>
+
+        </div>
       </div>
     </div>
   </div>
@@ -1381,6 +1558,7 @@
   <!-- ==================== SCRIPTS ==================== -->
   <?!= include('Compartilhado-Utilidades🔧'); ?>
   <?!= include('PaginaProjetoDetalhe-JS🟡'); ?>
+  <?!= include('ModalRelatorio-JS🟡'); ?>
 
 </body>
 
