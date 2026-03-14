@@ -1009,7 +1009,9 @@ function enviarEmailParaResponsaveis(idsResponsaveis, projetoId, assuntoPersonal
         MailApp.sendEmail({
           to: responsavel.email,
           subject: assunto,
-          htmlBody: corpoEmail
+          htmlBody: corpoEmail,
+          name: 'Smart Meeting',
+          replyTo: 'setorbiunichristus@gmail.com'
         });
         emailsEnviados++;
         Logger.log('Email enviado para: ' + responsavel.email);
@@ -1520,7 +1522,7 @@ function enviarRelatorioProjetosEmail(token, opcoes) {
     });
 
     // Envia
-    const emailOpts = { subject: assunto, htmlBody: corpo };
+    const emailOpts = { subject: assunto, htmlBody: corpo, name: 'Smart Meeting', replyTo: 'setorbiunichristus@gmail.com' };
     if (emailsCC.length > 0) emailOpts.cc = emailsCC.join(',');
 
     if (emailsTo.length > 0) {
@@ -1772,7 +1774,9 @@ function enviarEmailParaResponsaveisComCopia(idsResponsaveis, projetoId, assunto
         const opcoesEmail = {
           to: responsavel.email,
           subject: assunto,
-          htmlBody: corpoEmail
+          htmlBody: corpoEmail,
+          name: 'Smart Meeting',
+          replyTo: 'setorbiunichristus@gmail.com'
         };
         
         // Adicionar CC se houver
@@ -2078,149 +2082,162 @@ function montarOpcoes(lista, pesoMaximo) {
   })).filter(o => o.valor > 0);
 }
 
+// ===================== CONFIG PRIORIDADE =====================
+
+const CONFIG_PRIORIDADE_DEFAULTS = {
+  // Gravidade
+  grav_critico:        5,
+  grav_alto:           4,
+  grav_medio:          3,
+  // Urgência
+  urg_imediata:        5,
+  urg_muito_urgente:   4,
+  urg_urgente:         3,
+  urg_pouco_urgente:   2,
+  urg_pode_esperar:    1,
+  // Tipo de Projeto
+  tipo_correcao:       5,
+  tipo_nova_impl:      4,
+  tipo_melhoria:       3,
+  // Para Quem
+  para_diretoria:      5,
+  para_outros:         3,
+  // Esforço
+  esf_turno:           5,
+  esf_dia:             4,
+  esf_semana:          3,
+  esf_mais_semana:     2,
+  // Escala de prioridade (thresholds)
+  escala_alta_min:     2102,
+  escala_media_min:    1078
+};
+
+function _lerConfigPrioridadeTab_() {
+  try {
+    const ss  = SpreadsheetApp.openById(ID_PLANILHA);
+    let aba   = ss.getSheetByName(NOME_ABA_CONFIG_PRIORIDADE);
+    if (!aba) {
+      aba = ss.insertSheet(NOME_ABA_CONFIG_PRIORIDADE);
+      inicializarCabecalhoAba(aba, NOME_ABA_CONFIG_PRIORIDADE);
+      return Object.assign({}, CONFIG_PRIORIDADE_DEFAULTS);
+    }
+    const dados = aba.getDataRange().getValues();
+    if (dados.length <= 1) return Object.assign({}, CONFIG_PRIORIDADE_DEFAULTS);
+    const cfg = Object.assign({}, CONFIG_PRIORIDADE_DEFAULTS);
+    for (let i = 1; i < dados.length; i++) {
+      const chave = dados[i][0] ? dados[i][0].toString().trim() : '';
+      const val   = dados[i][1];
+      if (chave && chave in cfg && val !== '' && val !== null) {
+        cfg[chave] = Number(val);
+      }
+    }
+    return cfg;
+  } catch (e) {
+    Logger.log('ERRO _lerConfigPrioridadeTab_: ' + e.toString());
+    return Object.assign({}, CONFIG_PRIORIDADE_DEFAULTS);
+  }
+}
+
+function obterConfigPrioridade(token) {
+  try {
+    const sess = verificarSessao(token);
+    if (!sess || !sess.valida) return { sucesso: false, mensagem: 'Sessão inválida.' };
+    const cfg = _lerConfigPrioridadeTab_();
+    return { sucesso: true, config: cfg };
+  } catch (e) {
+    Logger.log('ERRO obterConfigPrioridade: ' + e.toString());
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
+function salvarConfigPrioridade(token, config) {
+  try {
+    const sess = verificarSessao(token);
+    if (!sess || !sess.valida) return { sucesso: false, mensagem: 'Sessão inválida.' };
+    if (sess.usuario.perfil !== 'admin') return { sucesso: false, mensagem: 'Apenas administradores podem alterar a configuração de prioridade.' };
+
+    const ss  = SpreadsheetApp.openById(ID_PLANILHA);
+    let aba   = ss.getSheetByName(NOME_ABA_CONFIG_PRIORIDADE);
+    if (!aba) {
+      aba = ss.insertSheet(NOME_ABA_CONFIG_PRIORIDADE);
+      inicializarCabecalhoAba(aba, NOME_ABA_CONFIG_PRIORIDADE);
+    }
+
+    // Reconstrói a aba inteiramente para evitar linhas órfãs
+    const linhas = [['Chave', 'Valor']];
+    const chavesValidas = Object.keys(CONFIG_PRIORIDADE_DEFAULTS);
+    chavesValidas.forEach(function(chave) {
+      const val = (config && config[chave] !== undefined) ? Number(config[chave]) : CONFIG_PRIORIDADE_DEFAULTS[chave];
+      linhas.push([chave, val]);
+    });
+
+    aba.clearContents();
+    aba.getRange(1, 1, linhas.length, 2).setValues(linhas);
+    aba.getRange(1, 1, 1, 2).setFontWeight('bold');
+
+    return { sucesso: true, mensagem: 'Configuração salva com sucesso!' };
+  } catch (e) {
+    Logger.log('ERRO salvarConfigPrioridade: ' + e.toString());
+    return { sucesso: false, mensagem: e.message };
+  }
+}
+
 function obterConfigCalculoPrioridade() {
   try {
-    const aba = obterAba(NOME_ABA_PROJETOS);
-
-    // Pesos fixos por tipo de projeto
-    const PESOS_FIXOS_TIPO = {
-      'correção': 5, 'correcao': 5,
-      'nova implementação': 4, 'nova implementacao': 4,
-      'melhoria': 3
-    };
-
-    // ← novo: pesos fixos por esforço (conforme especificado pelo usuário)
-    const PESOS_FIXOS_ESFORCO = {
-      '1 turno ou menos (4 horas)': 5,
-      '1 dia ou menos (8 horas)':   4,
-      'uma semana (40h)':            3,
-      'mais de uma semana (40h)':    2
-    };
-
-    function obterOpcoesValidacao(colunaIndex) {
-      for (let linhaTest = 2; linhaTest <= 10; linhaTest++) {
-        try {
-          const range = aba.getRange(linhaTest, colunaIndex + 1);
-          const validacao = range.getDataValidation();
-          if (validacao) {
-            const criterio = validacao.getCriteriaType();
-            if (criterio === SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST) {
-              const valores = validacao.getCriteriaValues()[0];
-              if (Array.isArray(valores) && valores.length > 0) {
-                return valores.filter(v => v && v.toString().trim() !== '');
-              }
-            } else if (criterio === SpreadsheetApp.DataValidationCriteria.VALUE_IN_RANGE) {
-              const rangeValidacao = validacao.getCriteriaValues()[0];
-              if (rangeValidacao) {
-                return rangeValidacao.getValues().flat().filter(v => v && v.toString().trim() !== '');
-              }
-            }
-          }
-        } catch (e) { continue; }
-      }
-      return [];
-    }
-
-    function montarOpcoesTipoFixo(lista) {
-      if (!lista || lista.length === 0) return [];
-      return lista
-        .map(label => {
-          const chave = label.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          const peso = PESOS_FIXOS_TIPO[label.toString().toLowerCase()] ||
-                       PESOS_FIXOS_TIPO[chave] || 0;
-          return { valor: peso, label: label.toString() };
-        })
-        .filter(o => o.valor > 0)
-        .sort((a, b) => b.valor - a.valor);
-    }
-
-    // ← nova função para esforço com pesos fixos
-    function montarOpcoesEsforcoFixo(lista) {
-      if (!lista || lista.length === 0) return [];
-      return lista
-        .map(label => {
-          const peso = PESOS_FIXOS_ESFORCO[label.toString().trim()] || 0;
-          return { valor: peso, label: label.toString().trim() };
-        })
-        .filter(o => o.valor > 0)
-        .sort((a, b) => b.valor - a.valor);
-    }
-
-    const opcoesGravidade = obterOpcoesValidacao(COLUNAS_PROJETOS.GRAVIDADE);
-    const opcoesUrgencia  = obterOpcoesValidacao(COLUNAS_PROJETOS.URGENCIA);
-    const opcoesTipo      = obterOpcoesValidacao(COLUNAS_PROJETOS.TIPO);
-    const opcoesParaQuem  = obterOpcoesValidacao(COLUNAS_PROJETOS.PARA_QUEM);
-    const opcoesEsforco   = obterOpcoesValidacao(COLUNAS_PROJETOS.ESFORCO); // ← novo
-
-    Logger.log('Opções encontradas - Gravidade: ' + opcoesGravidade.length +
-               ', Urgencia: ' + opcoesUrgencia.length +
-               ', Tipo: ' + opcoesTipo.length +
-               ', ParaQuem: ' + opcoesParaQuem.length +
-               ', Esforco: ' + opcoesEsforco.length);
+    const cfg = _lerConfigPrioridadeTab_();
 
     return {
       gravidade: {
         titulo: 'Gravidade',
         descricao: 'O que acontece se eu não fizer?',
-        opcoes: opcoesGravidade.length > 0
-          ? montarOpcoes(opcoesGravidade, 5)
-          : [
-              { valor: 5, label: 'Crítico - Não é possível cumprir as atividades' },
-              { valor: 4, label: 'Alto - É possível cumprir parcialmente' },
-              { valor: 3, label: 'Médio - É possível mas demora muito' }
-            ]
+        opcoes: [
+          { valor: cfg.grav_critico, label: 'Crítico - Não é possível cumprir as atividades' },
+          { valor: cfg.grav_alto,    label: 'Alto - É possível cumprir parcialmente' },
+          { valor: cfg.grav_medio,   label: 'Médio - É possível mas demora muito' }
+        ]
       },
       urgencia: {
         titulo: 'Urgência',
         descricao: 'Para quando?',
-        opcoes: opcoesUrgencia.length > 0
-          ? montarOpcoes(opcoesUrgencia, 5)
-          : [
-              { valor: 5, label: 'Imediata - Executar imediatamente' },
-              { valor: 4, label: 'Muito urgente - Prazo curto (5 dias)' },
-              { valor: 3, label: 'Urgente - Curto prazo (10 dias)' },
-              { valor: 2, label: 'Pouco urgente - Mais de 10 dias' },
-              { valor: 1, label: 'Pode esperar' }
-            ]
+        opcoes: [
+          { valor: cfg.urg_imediata,       label: 'Imediata - Executar imediatamente' },
+          { valor: cfg.urg_muito_urgente,  label: 'Muito urgente - Prazo curto (5 dias)' },
+          { valor: cfg.urg_urgente,        label: 'Urgente - Curto prazo (10 dias)' },
+          { valor: cfg.urg_pouco_urgente,  label: 'Pouco urgente - Mais de 10 dias' },
+          { valor: cfg.urg_pode_esperar,   label: 'Pode esperar' }
+        ]
       },
       tipoProjeto: {
         titulo: 'Tipo de Projeto',
         descricao: 'Natureza do projeto',
-        opcoes: opcoesTipo.length > 0
-          ? montarOpcoesTipoFixo(opcoesTipo)
-          : [
-              { valor: 5, label: 'Correção' },
-              { valor: 4, label: 'Nova Implementação' },
-              { valor: 3, label: 'Melhoria' }
-            ]
+        opcoes: [
+          { valor: cfg.tipo_correcao,  label: 'Correção' },
+          { valor: cfg.tipo_nova_impl, label: 'Nova Implementação' },
+          { valor: cfg.tipo_melhoria,  label: 'Melhoria' }
+        ]
       },
       quemSolicita: {
         titulo: 'Para Quem',
         descricao: 'Quem solicitou',
-        opcoes: opcoesParaQuem.length > 0
-          ? montarOpcoes(opcoesParaQuem, 5)
-          : [
-              { valor: 5, label: 'Diretoria / Crítico' },
-              { valor: 3, label: 'Demais áreas' }
-            ]
+        opcoes: [
+          { valor: cfg.para_diretoria, label: 'Diretoria / Crítico' },
+          { valor: cfg.para_outros,    label: 'Demais áreas' }
+        ]
       },
-      // ← novo indicador
       esforco: {
         titulo: 'Esforço',
         descricao: 'Tempo de desenvolvimento necessário',
-        opcoes: opcoesEsforco.length > 0
-          ? montarOpcoesEsforcoFixo(opcoesEsforco)
-          : [
-              { valor: 5, label: '1 turno ou menos (4 horas)' },
-              { valor: 4, label: '1 dia ou menos (8 horas)' },
-              { valor: 3, label: 'uma semana (40h)' },
-              { valor: 2, label: 'mais de uma semana (40h)' }
-            ]
+        opcoes: [
+          { valor: cfg.esf_turno,      label: '1 turno ou menos (4 horas)' },
+          { valor: cfg.esf_dia,        label: '1 dia ou menos (8 horas)' },
+          { valor: cfg.esf_semana,     label: 'uma semana (40h)' },
+          { valor: cfg.esf_mais_semana,label: 'mais de uma semana (40h)' }
+        ]
       },
       escala: {
-        alta:  { minimo: 2102, cor: '#dc2626', bgCor: 'rgba(220, 38, 38, 0.15)' },
-        media: { minimo: 1078, maximo: 2101, cor: '#ca8a04', bgCor: 'rgba(202, 138, 4, 0.15)' },
-        baixa: { maximo: 1077, cor: '#059669', bgCor: 'rgba(5, 150, 105, 0.15)' }
+        alta:  { minimo: cfg.escala_alta_min,  cor: '#dc2626', bgCor: 'rgba(220, 38, 38, 0.15)' },
+        media: { minimo: cfg.escala_media_min, maximo: cfg.escala_alta_min - 1, cor: '#ca8a04', bgCor: 'rgba(202, 138, 4, 0.15)' },
+        baixa: { maximo: cfg.escala_media_min - 1, cor: '#059669', bgCor: 'rgba(5, 150, 105, 0.15)' }
       }
     };
   } catch (e) {
@@ -2753,9 +2770,11 @@ function enviarResumoSemanalParaGestor() {
 var dataEnvio = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
 MailApp.sendEmail({
   to: CONFIG_RESUMO_SEMANAL.EMAIL_GESTOR,
-  cc:"napa13@christus.com.br,napa02@christus.com.br,michelle.furuya@gmail.com" ,
+  cc:"napa13@christus.com.br,napa02@christus.com.br,michelle.furuya@gmail.com",
   subject: CONFIG_RESUMO_SEMANAL.ASSUNTO + ' · ' + dataEnvio,
-  htmlBody: corpoHtmlEmail
+  htmlBody: corpoHtmlEmail,
+  name: 'Smart Meeting',
+  replyTo: 'setorbiunichristus@gmail.com'
 });
 
     Logger.log('✅ Resumo semanal enviado para ' + CONFIG_RESUMO_SEMANAL.EMAIL_GESTOR);

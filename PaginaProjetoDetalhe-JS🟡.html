@@ -310,6 +310,12 @@ function preencherEstado(dados) {
   var temaServidor = dados.tema || 'cafe';
   _ativarTema(temaServidor);
 
+  // Botão de config de prioridade: apenas admins
+  var btnCfgPrio = document.getElementById('btnConfigPrioridade');
+  if (btnCfgPrio) {
+    btnCfgPrio.style.display = (ESTADO.permissoes && ESTADO.permissoes.modoAdmin) ? '' : 'none';
+  }
+
 }
 
 /** Recarrega dados do servidor SEM tela de carregamento (usa spinner inline) */
@@ -4791,26 +4797,16 @@ function enviarEmailsSelecionados() {
 
 // ========================= NAVEGAÇÃO (LINKS ENTRE PÁGINAS) =========================
 function configurarNavegacao() {
-  if (typeof google !== 'undefined' && google.script) {
-    google.script.run
-      .withSuccessHandler(function(urlBase) {
-        var tk = (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN) ? '&token=' + encodeURIComponent(SESSAO_TOKEN) : '';
-        var links = document.querySelectorAll('a[data-pagina]');
-        links.forEach(function(link) {
-          var pagina = link.getAttribute('data-pagina');
-          var urlCompleta = urlBase + '?pagina=' + pagina + tk;
-          link.href = urlCompleta;
-          link.addEventListener('click', function(evento) {
-            evento.preventDefault();
-            window.location.href = urlCompleta;
-          });
-        });
-      })
-      .withFailureHandler(function(erro) {
-        console.error('Erro ao obter URL base:', erro);
-      })
-      .obterUrlBaseWebApp();
-  }
+  // Usa BASE_URL injetado pelo template — sem round-trip ao servidor
+  var urlBase = (typeof BASE_URL !== 'undefined' && BASE_URL)
+    ? BASE_URL
+    : (window.location.origin + window.location.pathname);
+  var tk = (typeof SESSAO_TOKEN !== 'undefined' && SESSAO_TOKEN) ? '&token=' + encodeURIComponent(SESSAO_TOKEN) : '';
+  document.querySelectorAll('a[data-pagina]').forEach(function(link) {
+    var pagina = link.getAttribute('data-pagina');
+    link.href = urlBase + '?pagina=' + pagina + tk;
+    // Sem click listener aqui — Compartilhado-Utilidades🔧 gerencia a transição com overlay.
+  });
 }
 
 // ========================= DADOS DEMO (FALLBACK SEM GOOGLE) =========================
@@ -6480,6 +6476,636 @@ function _escaparHtml(str) {
     start();
   }
 })();
+
+
+// ========================= MÓDULO: SNAKE GAME =========================
+(function() {
+  'use strict';
+
+  // ── Estado global do jogo ──────────────────────────────────────────────────
+  var G = {
+    state:    'IDLE',
+    snake:    [],
+    dir:      {x:1, y:0},
+    nextDir:  {x:1, y:0},
+    food:     null,
+    score:    0,
+    hiScore:  0,
+    speed:    260,
+    loopId:   null,
+    blinkId:  null,
+    keyFn:    null,
+    canvas:   null,
+    ctx:      null,
+    COLS: 20, ROWS: 20, CELL: 15,
+    MIN_SPEED: 38,
+    fontOk:   false,
+  };
+
+  function _injectCSS() {
+    if (document.getElementById('_snakeStyleSheet')) return;
+    var s = document.createElement('style');
+    s.id = '_snakeStyleSheet';
+    s.textContent = [
+      '.sn-btn{background:rgba(0,204,68,0.10);border:1px solid rgba(0,204,68,0.45);',
+        'color:#00cc44;width:34px;height:34px;border-radius:5px;cursor:pointer;',
+        'font-size:0.8rem;display:flex;align-items:center;justify-content:center;',
+        'transition:all 0.1s;font-family:monospace;user-select:none;-webkit-user-select:none;}',
+      '.sn-btn:hover{background:rgba(0,204,68,0.28);border-color:#00cc44;}',
+      '.sn-btn:active{background:rgba(0,204,68,0.5);transform:scale(0.88);}',
+      '@keyframes premiumGlow{0%,100%{box-shadow:0 0 10px rgba(184,151,10,0.35),inset 0 0 8px rgba(184,151,10,0.04)}',
+        '50%{box-shadow:0 0 22px rgba(184,151,10,0.65),inset 0 0 18px rgba(184,151,10,0.08)}}',
+      '@keyframes premiumBorder{0%,100%{border-color:#9a7c08}50%{border-color:#e0b83a}}',
+      '@keyframes lockShake{0%,90%,100%{transform:rotate(0)}93%{transform:rotate(-8deg)}96%{transform:rotate(8deg)}98%{transform:rotate(-4deg)}}',
+      '.tema-premium-card{animation:premiumGlow 2.2s ease-in-out infinite,premiumBorder 2.2s ease-in-out infinite;}',
+      '.premium-lock-icon{animation:lockShake 4s ease-in-out infinite;}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  function _loadFont(cb) {
+    if (G.fontOk) { cb(); return; }
+    if (!document.getElementById('_snakeFont')) {
+      var lk = document.createElement('link');
+      lk.id = '_snakeFont';
+      lk.rel = 'stylesheet';
+      lk.href = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap';
+      document.head.appendChild(lk);
+    }
+    var tries = 0;
+    var t = setInterval(function() {
+      tries++;
+      var ok = document.fonts && document.fonts.check('8px "Press Start 2P"');
+      if (ok || tries > 28) { clearInterval(t); G.fontOk = true; cb(); }
+    }, 50);
+  }
+
+  // ── Abrir / fechar ────────────────────────────────────────────────────────
+  window.abrirSnakeGame = function() {
+    _injectCSS();
+    var modal = document.getElementById('modalSnakeGame');
+    if (!modal) return;
+    modal.classList.add('visible');
+    G.canvas = document.getElementById('snakeCanvas');
+    G.ctx    = G.canvas ? G.canvas.getContext('2d') : null;
+    if (!G.ctx) return;
+
+    G.keyFn = function(e) {
+      var map = {
+        'ArrowUp':{x:0,y:-1},'ArrowDown':{x:0,y:1},'ArrowLeft':{x:-1,y:0},'ArrowRight':{x:1,y:0},
+        'w':{x:0,y:-1},'s':{x:0,y:1},'a':{x:-1,y:0},'d':{x:1,y:0},
+        'W':{x:0,y:-1},'S':{x:0,y:1},'A':{x:-1,y:0},'D':{x:1,y:0},
+      };
+      var nd = map[e.key];
+      if (nd) {
+        e.preventDefault();
+        if (G.state === 'PLAYING' && !(nd.x === -G.dir.x && nd.y === -G.dir.y)) G.nextDir = nd;
+        if (G.state === 'MENU' || G.state === 'DEAD') _start();
+        if (G.state === 'PAUSED') _resume();
+        return;
+      }
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        if (G.state === 'MENU' || G.state === 'DEAD') _start();
+        else if (G.state === 'PLAYING') _pause();
+        else if (G.state === 'PAUSED') _resume();
+      }
+      if (e.key === 'Escape') window.fecharSnakeGame();
+    };
+    document.addEventListener('keydown', G.keyFn, true);
+    _loadFont(function() { _showMenu(); });
+  };
+
+  window.fecharSnakeGame = function() {
+    var modal = document.getElementById('modalSnakeGame');
+    if (modal) modal.classList.remove('visible');
+    _stop();
+    if (G.keyFn) { document.removeEventListener('keydown', G.keyFn, true); G.keyFn = null; }
+    G.state = 'IDLE';
+  };
+
+  // ── Menu ──────────────────────────────────────────────────────────────────
+  function _showMenu() {
+    _stop();
+    G.state = 'MENU';
+    var ctrl = document.getElementById('snakeControls');
+    if (ctrl) ctrl.style.display = 'none';
+    if (G.canvas) G.canvas.onclick = _start;
+    _renderMenu();
+  }
+
+  function _renderMenu() {
+    var ctx = G.ctx, W = 300, H = 300, c = G.CELL;
+    if (!ctx) return;
+    var F = '"Press Start 2P",monospace';
+
+    ctx.fillStyle = '#010d01'; ctx.fillRect(0,0,W,H);
+    _drawGrid(ctx, W, H);
+
+    // Título com glow
+    ctx.shadowColor = '#00ff44'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#00ff44'; ctx.font = 'bold 18px '+F; ctx.textAlign = 'center';
+    ctx.fillText('SNAKE', W/2, 76);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#d4a90a'; ctx.font = '7px '+F;
+    ctx.fillText('PREMIUM  EDITION', W/2, 96);
+
+    // Cobra decorativa no menu
+    var segs = [{x:7,y:11},{x:6,y:11},{x:5,y:11},{x:4,y:11},{x:3,y:11}];
+    _drawSnakeSegs(ctx, segs, {x:1,y:0});
+    // Maçã decorativa
+    var fx = 10*c, fy = 11*c;
+    ctx.fillStyle = '#bb1c00'; ctx.fillRect(fx+2, fy+5, c-4, c-6);
+    ctx.fillStyle = '#ff4422'; ctx.fillRect(fx+3, fy+6, 3, 3);
+    ctx.fillStyle = '#1a5200'; ctx.fillRect(fx+c/2-1, fy+1, 2, 5);
+
+    // Instruções
+    ctx.fillStyle = '#003a18'; ctx.font = '6px '+F;
+    ctx.fillText('WASD  ou  SETAS  para  mover', W/2, 214);
+    ctx.fillText('ESPACO  =  pausar', W/2, 230);
+
+    if (G.hiScore > 0) {
+      ctx.fillStyle = '#ffcc00'; ctx.font = '7px '+F;
+      ctx.fillText('RECORDE:  ' + G.hiScore, W/2, 258);
+    }
+
+    _blink(ctx, W/2, 170, '>>  CLIQUE  PARA  JOGAR  <<', '#00cc44', '7px '+F);
+  }
+
+  // ── Partida ────────────────────────────────────────────────────────────────
+  function _start() {
+    _stop();
+    if (G.canvas) G.canvas.onclick = null;
+    G.state   = 'PLAYING';
+    G.score   = 0;
+    G.speed   = 260;
+    var cx = Math.floor(G.COLS/2), cy = Math.floor(G.ROWS/2);
+    G.snake   = [{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}];
+    G.dir     = {x:1,y:0};
+    G.nextDir = {x:1,y:0};
+    _placeFood();
+    _updateHUD();
+    var ctrl = document.getElementById('snakeControls');
+    if (ctrl) ctrl.style.display = 'block';
+    var pb = document.getElementById('snakePauseBtn');
+    if (pb) pb.textContent = '⏸';
+    _render();
+    G.loopId = setInterval(_step, G.speed);
+  }
+  window._snakeStart = _start;
+
+  // ── Step ───────────────────────────────────────────────────────────────────
+  function _step() {
+    if (G.state !== 'PLAYING') return;
+    G.dir = G.nextDir;
+    var head = G.snake[0];
+    var nh   = {x: head.x + G.dir.x, y: head.y + G.dir.y};
+
+    if (nh.x < 0 || nh.x >= G.COLS || nh.y < 0 || nh.y >= G.ROWS) { _die(); return; }
+    for (var i = 0; i < G.snake.length; i++) {
+      if (G.snake[i].x === nh.x && G.snake[i].y === nh.y) { _die(); return; }
+    }
+    G.snake.unshift(nh);
+
+    if (nh.x === G.food.x && nh.y === G.food.y) {
+      G.score++;
+      if (G.score > G.hiScore) G.hiScore = G.score;
+      _updateHUD();
+      _placeFood();
+      _stop();
+      G.speed = Math.max(G.MIN_SPEED, Math.round(G.speed * 0.84));
+      G.loopId = setInterval(_step, G.speed);
+    } else {
+      G.snake.pop();
+    }
+    _render();
+  }
+
+  // ── Morte ──────────────────────────────────────────────────────────────────
+  function _die() {
+    _stop();
+    G.state = 'DEAD';
+    if (G.score > G.hiScore) G.hiScore = G.score;
+    var ctrl = document.getElementById('snakeControls');
+    if (ctrl) ctrl.style.display = 'none';
+    var flashes = 0;
+    var t = setInterval(function() {
+      _render();
+      if (flashes % 2 === 0) { G.ctx.fillStyle = 'rgba(255,0,0,0.22)'; G.ctx.fillRect(0,0,300,300); }
+      if (++flashes >= 8) { clearInterval(t); _renderGameOver(); }
+    }, 90);
+  }
+
+  function _renderGameOver() {
+    var ctx = G.ctx, W = 300, H = 300;
+    var F = '"Press Start 2P",monospace';
+    _render();
+    ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0,0,W,H);
+
+    ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 18;
+    ctx.fillStyle = '#ff3333'; ctx.font = 'bold 14px '+F; ctx.textAlign = 'center';
+    ctx.fillText('GAME  OVER', W/2, H/2 - 46);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#ffcc00'; ctx.font = '8px '+F;
+    ctx.fillText('PONTUACAO:  ' + G.score, W/2, H/2 - 20);
+
+    if (G.score > 0 && G.score === G.hiScore) {
+      ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 8;
+      ctx.fillStyle = '#00ffcc'; ctx.font = '7px '+F;
+      ctx.fillText('★  NOVO  RECORDE!  ★', W/2, H/2 + 2);
+      ctx.shadowBlur = 0;
+    }
+
+    var msg = G.score === 0 ? '...nem um ponto. Impressionante.'
+            : G.score < 4   ? 'Tente novamente!'
+            : G.score < 8   ? 'Quase la...'
+            : G.score < 13  ? 'Bom! Mas da pra mais!'
+            :                 'Voce e um lendario.';
+    ctx.fillStyle = '#444'; ctx.font = '6px '+F;
+    ctx.fillText(msg, W/2, H/2 + 18);
+
+    if (G.canvas) G.canvas.onclick = _start;
+    _blink(ctx, W/2, H/2 + 58, 'CLIQUE  PARA  TENTAR  NOVAMENTE', '#00cc44', '6px '+F);
+  }
+
+  // ── Pause ──────────────────────────────────────────────────────────────────
+  function _pause() {
+    _stop(); G.state = 'PAUSED';
+    var ctx = G.ctx, W = 300, H = 300, F = '"Press Start 2P",monospace';
+    ctx.fillStyle = 'rgba(0,0,0,0.62)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#00ff44'; ctx.font = 'bold 14px '+F; ctx.textAlign = 'center';
+    ctx.fillText('PAUSADO', W/2, H/2 - 8);
+    ctx.fillStyle = '#003318'; ctx.font = '6px '+F;
+    ctx.fillText('clique  em  ▶  para  continuar', W/2, H/2 + 14);
+    var pb = document.getElementById('snakePauseBtn');
+    if (pb) pb.textContent = '▶';
+  }
+
+  function _resume() {
+    if (G.state !== 'PAUSED') return;
+    G.state = 'PLAYING';
+    var pb = document.getElementById('snakePauseBtn');
+    if (pb) pb.textContent = '⏸';
+    G.loopId = setInterval(_step, G.speed);
+  }
+
+  window._snakeDirBtn = function(dx, dy) {
+    if (G.state === 'PAUSED') { _resume(); return; }
+    if (G.state !== 'PLAYING') return;
+    if (!(dx === -G.dir.x && dy === -G.dir.y)) G.nextDir = {x:dx, y:dy};
+  };
+  window._snakePauseToggle = function() {
+    if (G.state === 'PLAYING') _pause();
+    else if (G.state === 'PAUSED') _resume();
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  function _render() {
+    var ctx = G.ctx, W = 300, H = 300, c = G.CELL;
+    if (!ctx) return;
+    ctx.fillStyle = '#010d01'; ctx.fillRect(0,0,W,H);
+    _drawGrid(ctx, W, H);
+
+    // Comida — maçã pixel art
+    if (G.food) {
+      var fx = G.food.x*c, fy = G.food.y*c;
+      ctx.fillStyle = '#991500'; ctx.fillRect(fx+2, fy+5, c-4, c-6);
+      ctx.fillStyle = '#cc2000'; ctx.fillRect(fx+2, fy+5, c-4, c-6);
+      ctx.fillStyle = '#ff4422'; ctx.fillRect(fx+3, fy+6, 3, 3);
+      ctx.fillStyle = '#660e00'; ctx.fillRect(fx+1, fy+7, 1, 3);
+      ctx.fillStyle = '#1a5200'; ctx.fillRect(fx+c/2-1, fy+1, 2, 5);
+      ctx.fillStyle = '#2a8800'; ctx.fillRect(fx+c/2+1, fy+2, 3, 2);
+    }
+
+    _drawSnakeSegs(ctx, G.snake, G.dir);
+  }
+
+  function _drawSnakeSegs(ctx, segs, dir) {
+    var c = G.CELL;
+    for (var i = segs.length-1; i >= 0; i--) {
+      var sx = segs[i].x*c, sy = segs[i].y*c;
+      if (i === 0) {
+        ctx.fillStyle = '#3ddc6e'; ctx.fillRect(sx+1, sy+1, c-2, c-2);
+        var e1 = {x:sx+3, y:sy+3}, e2 = {x:sx+c-6, y:sy+3};
+        if (dir.x===1)  { e1={x:sx+c-5,y:sy+3};   e2={x:sx+c-5,y:sy+c-6}; }
+        if (dir.x===-1) { e1={x:sx+2,y:sy+3};      e2={x:sx+2,y:sy+c-6}; }
+        if (dir.y===-1) { e1={x:sx+3,y:sy+2};      e2={x:sx+c-6,y:sy+2}; }
+        if (dir.y===1)  { e1={x:sx+3,y:sy+c-5};    e2={x:sx+c-6,y:sy+c-5}; }
+        ctx.fillStyle = '#001800';
+        ctx.fillRect(e1.x, e1.y, 2, 2);
+        ctx.fillRect(e2.x, e2.y, 2, 2);
+      } else {
+        ctx.fillStyle = (i%2===0) ? '#186636' : '#115228';
+        ctx.fillRect(sx+1, sy+1, c-2, c-2);
+        ctx.fillStyle = (i%2===0) ? '#1e8844' : '#186636';
+        ctx.fillRect(sx+3, sy+3, c-6, c-6);
+      }
+    }
+  }
+
+  function _drawGrid(ctx, W, H) {
+    ctx.strokeStyle = '#0a1c0a'; ctx.lineWidth = 0.5;
+    var c = G.CELL;
+    for (var x=0; x<=W; x+=c) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (var y=0; y<=H; y+=c) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  }
+
+  function _blink(ctx, x, y, text, color, font) {
+    if (G.blinkId) { clearInterval(G.blinkId); G.blinkId = null; }
+    var vis = true;
+    function draw() {
+      if (!G.canvas || (G.state !== 'MENU' && G.state !== 'DEAD')) {
+        clearInterval(G.blinkId); G.blinkId = null; return;
+      }
+      ctx.fillStyle = '#010d01'; ctx.fillRect(0, y-14, 300, 22);
+      if (vis) { ctx.fillStyle = color; ctx.font = font; ctx.textAlign = 'center'; ctx.fillText(text, x, y); }
+      vis = !vis;
+    }
+    G.blinkId = setInterval(draw, 560);
+    draw();
+  }
+
+  function _placeFood() {
+    var empty = [];
+    for (var x=0; x<G.COLS; x++) for (var y=0; y<G.ROWS; y++) {
+      var hit = false;
+      for (var i=0; i<G.snake.length; i++) if (G.snake[i].x===x && G.snake[i].y===y) { hit=true; break; }
+      if (!hit) empty.push({x:x,y:y});
+    }
+    if (!empty.length) { _die(); return; }
+    G.food = empty[Math.floor(Math.random()*empty.length)];
+  }
+
+  function _updateHUD() {
+    var s = document.getElementById('snakeScoreDisplay');
+    var h = document.getElementById('snakeHiScore');
+    if (s) s.textContent = G.score;
+    if (h) h.textContent = G.hiScore;
+  }
+
+  function _stop() {
+    if (G.loopId)  { clearInterval(G.loopId);  G.loopId  = null; }
+    if (G.blinkId) { clearInterval(G.blinkId); G.blinkId = null; }
+  }
+
+})();
+
+
+// ========================= MÓDULO: CONFIG PRIORIDADE =========================
+
+var _configPrioridadeAtual = null; // cache local enquanto o modal está aberto
+
+function abrirModalConfigPrioridade() {
+  var modal = document.getElementById('modalConfigPrioridade');
+  if (!modal) return;
+  modal.classList.add('visible');
+  _configPrioridadeAtual = null;
+
+  var corpo = document.getElementById('configPrioridadeCorpo');
+  corpo.innerHTML = '<div class="empty-state"><i class="fas fa-mug-hot fa-spin"></i> Carregando configurações...</div>';
+
+  var btnSalvar = document.getElementById('btnSalvarConfigPrioridade');
+  if (btnSalvar) btnSalvar.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.sucesso) {
+        corpo.innerHTML = '<div class="empty-state erro"><i class="fas fa-exclamation-triangle"></i> ' + (r && r.mensagem ? r.mensagem : 'Erro ao carregar.') + '</div>';
+        return;
+      }
+      _configPrioridadeAtual = r.config;
+      _renderizarModalConfigPrioridade(r.config);
+      if (btnSalvar) btnSalvar.disabled = false;
+    })
+    .withFailureHandler(function(err) {
+      corpo.innerHTML = '<div class="empty-state erro"><i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message + '</div>';
+    })
+    .obterConfigPrioridade(SESSAO_TOKEN);
+}
+
+function fecharModalConfigPrioridade() {
+  var modal = document.getElementById('modalConfigPrioridade');
+  if (modal) modal.classList.remove('visible');
+  _configPrioridadeAtual = null;
+}
+
+function _renderizarModalConfigPrioridade(cfg) {
+  var secoes = [
+    {
+      titulo: 'Gravidade', icone: 'fa-fire-flame-curved', cor: 'gravidade',
+      descricao: 'O que acontece se o projeto não for feito?',
+      campos: [
+        { chave: 'grav_critico', label: 'Crítico', hint: 'Não é possível cumprir as atividades' },
+        { chave: 'grav_alto',    label: 'Alto',    hint: 'É possível cumprir parcialmente' },
+        { chave: 'grav_medio',   label: 'Médio',   hint: 'É possível mas demora muito' }
+      ]
+    },
+    {
+      titulo: 'Urgência', icone: 'fa-clock', cor: 'urgencia',
+      descricao: 'Para quando o projeto precisa estar pronto?',
+      campos: [
+        { chave: 'urg_imediata',      label: 'Imediata',       hint: 'Executar imediatamente' },
+        { chave: 'urg_muito_urgente', label: 'Muito urgente',  hint: 'Prazo curto (5 dias)' },
+        { chave: 'urg_urgente',       label: 'Urgente',        hint: 'Curto prazo (10 dias)' },
+        { chave: 'urg_pouco_urgente', label: 'Pouco urgente',  hint: 'Mais de 10 dias' },
+        { chave: 'urg_pode_esperar',  label: 'Pode esperar',   hint: 'Sem prazo definido' }
+      ]
+    },
+    {
+      titulo: 'Tipo de Projeto', icone: 'fa-folder-open', cor: 'tipo-projeto',
+      descricao: 'Qual é a natureza do projeto?',
+      campos: [
+        { chave: 'tipo_correcao',  label: 'Correção',           hint: 'Correção de erro ou bug' },
+        { chave: 'tipo_nova_impl', label: 'Nova Implementação', hint: 'Funcionalidade nova' },
+        { chave: 'tipo_melhoria',  label: 'Melhoria',           hint: 'Melhoria de existente' }
+      ]
+    },
+    {
+      titulo: 'Para Quem', icone: 'fa-users', cor: 'quem-solicita',
+      descricao: 'Quem solicitou ou será impactado pelo projeto?',
+      campos: [
+        { chave: 'para_diretoria', label: 'Diretoria / Crítico', hint: 'Alta liderança' },
+        { chave: 'para_outros',    label: 'Demais áreas',        hint: 'Outros solicitantes' }
+      ]
+    },
+    {
+      titulo: 'Esforço', icone: 'fa-gauge-high', cor: 'esforco',
+      descricao: 'Quanto tempo de desenvolvimento o projeto exige?',
+      campos: [
+        { chave: 'esf_turno',       label: '1 turno (≤ 4h)',      hint: 'Entregável no mesmo dia' },
+        { chave: 'esf_dia',         label: '1 dia (≤ 8h)',        hint: 'Entregável em um dia' },
+        { chave: 'esf_semana',      label: '1 semana (40h)',      hint: 'Até uma semana' },
+        { chave: 'esf_mais_semana', label: 'Mais de 1 semana',    hint: 'Projeto longo' }
+      ]
+    }
+  ];
+
+  // CSS injetado uma única vez
+  if (!document.getElementById('_cfgPrioCSS')) {
+    var s = document.createElement('style');
+    s.id = '_cfgPrioCSS';
+    s.textContent = [
+      '.cp-secao{background:var(--cor-fundo);border:1px solid var(--cor-borda-clara);border-radius:var(--raio-lg);overflow:hidden;transition:var(--transicao);}',
+      '.cp-secao:hover{border-color:var(--cor-primaria-clara);box-shadow:var(--sombra);}',
+      '.cp-secao-header{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--cor-fundo-quente);border-bottom:1px solid var(--cor-borda-clara);}',
+      '.cp-secao-header .indicador-icone{width:30px;height:30px;border-radius:var(--raio);flex-shrink:0;}',
+      '.cp-secao-header .indicador-icone i{font-size:0.82rem;}',
+      '.cp-secao-info{flex:1;}',
+      '.cp-secao-info strong{display:block;font-size:0.88rem;font-family:var(--font-titulo);color:var(--cor-primaria-escura);font-weight:600;}',
+      '.cp-secao-info span{font-size:0.72rem;color:var(--cor-texto-secundario);}',
+      '.cp-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:14px;}',
+      '.cp-campo label{display:block;font-size:0.75rem;font-weight:600;color:var(--cor-texto-secundario);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;}',
+      '.cp-campo small{display:block;font-size:0.7rem;color:var(--cor-texto-secundario);opacity:0.7;margin-top:3px;font-style:italic;}',
+      '.cp-campo input{width:100%;box-sizing:border-box;}',
+      '.cp-campo input.erro{border-color:var(--cor-perigo)!important;background:rgba(139,46,46,0.06)!important;}',
+      '.cp-limiar-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;}',
+      '.cp-limiar-card{background:var(--cor-fundo-card);border:2px solid var(--cor-borda);border-radius:var(--raio);padding:12px;transition:var(--transicao);}',
+      '.cp-limiar-card:focus-within{border-color:var(--cor-primaria);box-shadow:0 0 0 3px var(--cor-primaria-bg);}',
+      '.cp-limiar-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:0.7rem;font-weight:700;letter-spacing:0.04em;margin-bottom:8px;}',
+      '.cp-limiar-media{background:rgba(196,130,42,.14);color:var(--cor-aviso);}',
+      '.cp-limiar-alta{background:rgba(139,46,46,.12);color:var(--cor-perigo);}',
+      '.cp-limiar-card label{display:block;font-size:0.72rem;color:var(--cor-texto-secundario);margin-bottom:5px;}',
+      '.cp-limiar-card input{width:100%;box-sizing:border-box;font-size:1rem;font-weight:600;text-align:center;}',
+      '.cp-hint-barra{display:flex;gap:3px;margin-top:10px;border-radius:4px;overflow:hidden;height:6px;}',
+      '.cp-hint-barra span{flex:1;}',
+      '.cp-restaurar{display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--cor-fundo-quente);border:1px solid var(--cor-borda-clara);border-radius:var(--raio);cursor:pointer;font-size:0.78rem;color:var(--cor-texto-secundario);transition:var(--transicao);font-family:var(--font-corpo);}',
+      '.cp-restaurar:hover{background:var(--cor-destaque-bg);color:var(--cor-destaque);border-color:var(--cor-destaque);}',
+      '.indicador-icone.esforco{background:linear-gradient(135deg,var(--cor-sucesso),#3a5430);}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+
+  // Botão restaurar padrões
+  html += '<div style="display:flex;justify-content:flex-end;">';
+  html += '<button class="cp-restaurar" onclick="_restaurarPadroesPrioridade()">';
+  html += '<i class="fas fa-rotate-left"></i> Restaurar padrões</button></div>';
+
+  secoes.forEach(function(s) {
+    html += '<div class="cp-secao">';
+    html += '<div class="cp-secao-header">';
+    html += '<div class="indicador-icone ' + s.cor + '"><i class="fas ' + s.icone + '"></i></div>';
+    html += '<div class="cp-secao-info"><strong>' + s.titulo + '</strong><span>' + s.descricao + '</span></div>';
+    html += '</div>';
+    html += '<div class="cp-campos">';
+    s.campos.forEach(function(c) {
+      var val = (cfg && cfg[c.chave] !== undefined) ? cfg[c.chave] : '';
+      html += '<div class="cp-campo">';
+      html += '<label>' + c.label + '</label>';
+      html += '<input type="number" min="0" max="99" step="1" data-chave="' + c.chave + '" value="' + val + '">';
+      html += '<small>' + c.hint + '</small>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+
+  // Limiares de escala
+  var minMedia = (cfg && cfg.escala_media_min !== undefined) ? cfg.escala_media_min : '';
+  var minAlta  = (cfg && cfg.escala_alta_min  !== undefined) ? cfg.escala_alta_min  : '';
+
+  html += '<div class="cp-secao">';
+  html += '<div class="cp-secao-header">';
+  html += '<div class="indicador-icone" style="width:30px;height:30px;border-radius:var(--raio);background:linear-gradient(135deg,var(--cor-primaria),var(--cor-primaria-escura));display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+  html += '<i class="fas fa-sliders" style="font-size:0.82rem;color:#faf6ee;"></i></div>';
+  html += '<div class="cp-secao-info"><strong>Limiares de Prioridade</strong><span>Pontuação mínima para classificar como Média ou Alta. Abaixo do mínimo Média = Baixa.</span></div>';
+  html += '</div>';
+  html += '<div class="cp-limiar-wrap">';
+
+  html += '<div class="cp-limiar-card">';
+  html += '<span class="cp-limiar-badge cp-limiar-media"><i class="fas fa-circle" style="font-size:0.5rem;"></i> MÉDIA</span>';
+  html += '<label>Pontuação mínima para prioridade Média</label>';
+  html += '<input type="number" min="0" step="1" data-chave="escala_media_min" value="' + minMedia + '">';
+  html += '<div class="cp-hint-barra"><span style="background:var(--cor-sucesso);opacity:0.7;"></span><span style="background:var(--cor-aviso);"></span><span style="background:var(--cor-aviso);opacity:0.5;"></span></div>';
+  html += '</div>';
+
+  html += '<div class="cp-limiar-card">';
+  html += '<span class="cp-limiar-badge cp-limiar-alta"><i class="fas fa-circle" style="font-size:0.5rem;"></i> ALTA</span>';
+  html += '<label>Pontuação mínima para prioridade Alta</label>';
+  html += '<input type="number" min="0" step="1" data-chave="escala_alta_min" value="' + minAlta + '">';
+  html += '<div class="cp-hint-barra"><span style="background:var(--cor-sucesso);opacity:0.4;"></span><span style="background:var(--cor-aviso);opacity:0.5;"></span><span style="background:var(--cor-perigo);"></span></div>';
+  html += '</div>';
+
+  html += '</div></div>';
+  html += '</div>'; // wrapper principal
+
+  document.getElementById('configPrioridadeCorpo').innerHTML = html;
+}
+
+var _CONFIG_PRIORIDADE_DEFAULTS_JS = {
+  grav_critico:5, grav_alto:4, grav_medio:3,
+  urg_imediata:5, urg_muito_urgente:4, urg_urgente:3, urg_pouco_urgente:2, urg_pode_esperar:1,
+  tipo_correcao:5, tipo_nova_impl:4, tipo_melhoria:3,
+  para_diretoria:5, para_outros:3,
+  esf_turno:5, esf_dia:4, esf_semana:3, esf_mais_semana:2,
+  escala_alta_min:2102, escala_media_min:1078
+};
+
+function _restaurarPadroesPrioridade() {
+  var inputs = document.querySelectorAll('#configPrioridadeCorpo input[data-chave]');
+  inputs.forEach(function(inp) {
+    var chave = inp.getAttribute('data-chave');
+    if (_CONFIG_PRIORIDADE_DEFAULTS_JS[chave] !== undefined) {
+      inp.value = _CONFIG_PRIORIDADE_DEFAULTS_JS[chave];
+      inp.classList.remove('erro');
+      inp.style.borderColor = '';
+    }
+  });
+  mostrarToast('Valores restaurados para o padrão. Clique em Salvar para confirmar.', 'aviso');
+}
+
+function salvarConfigPrioridadeModal() {
+  var inputs = document.querySelectorAll('#configPrioridadeCorpo input[data-chave]');
+  if (!inputs.length) return;
+
+  var config = {};
+  var valido = true;
+  inputs.forEach(function(inp) {
+    var chave = inp.getAttribute('data-chave');
+    var val   = parseFloat(inp.value);
+    if (isNaN(val) || val < 0) {
+      inp.classList.add('erro');
+      valido = false;
+    } else {
+      inp.classList.remove('erro');
+      config[chave] = val;
+    }
+  });
+
+  if (!valido) {
+    mostrarToast('Corrija os campos marcados em vermelho.', 'erro');
+    return;
+  }
+
+  var btnSalvar = document.getElementById('btnSalvarConfigPrioridade');
+  if (btnSalvar) {
+    btnSalvar.disabled = true;
+    btnSalvar.innerHTML = '<i class="fas fa-mug-hot fa-spin"></i> Salvando...';
+  }
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (btnSalvar) {
+        btnSalvar.disabled = false;
+        btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar';
+      }
+      if (r && r.sucesso) {
+        mostrarToast('Configuração salva! ☕', 'sucesso');
+        fecharModalConfigPrioridade();
+      } else {
+        mostrarToast((r && r.mensagem) ? r.mensagem : 'Erro ao salvar.', 'erro');
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (btnSalvar) {
+        btnSalvar.disabled = false;
+        btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar';
+      }
+      mostrarToast('Erro: ' + err.message, 'erro');
+    })
+    .salvarConfigPrioridade(SESSAO_TOKEN, config);
+}
 
 
 </script>

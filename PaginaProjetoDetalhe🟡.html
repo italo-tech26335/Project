@@ -69,9 +69,6 @@
           <a href="#" class="nav-link-proj" data-pagina="reunioes">
             <i class="fas fa-video"></i><span>Reuniões</span>
           </a>
-          <a href="#" class="nav-link-proj" data-pagina="relatorios">
-            <i class="fas fa-clipboard-check"></i><span>Relatórios IA</span>
-          </a>
           <a href="#" class="nav-link-proj ativo" data-pagina="projeto">
             <i class="fas fa-project-diagram"></i><span>Projetos</span>
           </a>
@@ -134,6 +131,10 @@
 
         <!-- Grupo: Conta / Config -->
         <div class="btn-header-grupo">
+          <button class="btn-header btn-config-prioridade" id="btnConfigPrioridade" onclick="abrirModalConfigPrioridade()" title="Configurar pesos e limiares de prioridade">
+            <i class="fas fa-sliders"></i>
+            <span>Prioridade</span>
+          </button>
           <button class="btn-header btn-lixeira" onclick="abrirModalLixeira()" title="Lixeira de Projetos">
             <i class="fas fa-trash-alt"></i>
           </button>
@@ -926,6 +927,79 @@
   <?!= include('ModalRelatorio🟡'); ?>
 
 
+  <!-- ==================== MODAL CONFIG PRIORIDADE ==================== -->
+  <div id="modalConfigPrioridade" class="modal-overlay">
+    <div class="modal-content" style="max-width:640px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-sliders"></i> Configuração de Prioridade</h3>
+        <button class="btn-fechar-modal" onclick="fecharModalConfigPrioridade()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="configPrioridadeCorpo" style="overflow-y:auto;max-height:68vh;">
+        <div class="empty-state"><i class="fas fa-mug-hot fa-spin"></i> Carregando configurações...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-acao btn-secundario" onclick="fecharModalConfigPrioridade()">Cancelar</button>
+        <button class="btn-acao" id="btnSalvarConfigPrioridade" onclick="salvarConfigPrioridadeModal()">
+          <i class="fas fa-save"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==================== MODAL SNAKE GAME ==================== -->
+  <div id="modalSnakeGame" class="modal-overlay" style="z-index:3500;padding:16px;backdrop-filter:blur(8px);">
+    <div style="background:#020c02;border:3px solid #00cc44;border-radius:10px;
+      width:300px;max-width:95vw;overflow:hidden;
+      box-shadow:0 0 40px rgba(0,204,68,0.5),0 0 80px rgba(0,204,68,0.15),inset 0 0 40px rgba(0,80,20,0.04);
+      display:flex;flex-direction:column;align-items:stretch;">
+      <!-- Header bar -->
+      <div style="padding:9px 12px;background:#001400;border-bottom:2px solid #003800;display:flex;align-items:center;justify-content:space-between;">
+        <div style="color:#00cc44;font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;font-family:'Courier New',monospace;font-weight:700;">🐍 SNAKE — PREMIUM EDITION</div>
+        <button onclick="fecharSnakeGame()"
+          style="background:rgba(255,50,50,0.12);border:1px solid rgba(255,80,80,0.4);color:#ff6666;
+            width:24px;height:24px;border-radius:4px;cursor:pointer;font-size:0.72rem;
+            display:flex;align-items:center;justify-content:center;transition:all 0.15s;"
+          onmouseover="this.style.background='rgba(255,50,50,0.35)'"
+          onmouseleave="this.style.background='rgba(255,50,50,0.12)'">✕</button>
+      </div>
+      <!-- Score bar -->
+      <div style="padding:5px 12px;background:#001000;display:flex;justify-content:space-between;
+        border-bottom:1px solid #002400;font-size:0.65rem;color:#00aa33;font-family:'Courier New',monospace;">
+        <span>PONTOS:&nbsp;<strong id="snakeScoreDisplay" style="color:#00ff44;">0</strong></span>
+        <span>RECORDE:&nbsp;<strong id="snakeHiScore" style="color:#ffcc00;">0</strong></span>
+      </div>
+      <!-- Canvas -->
+      <div style="position:relative;background:#010d01;line-height:0;width:300px;align-self:center;">
+        <canvas id="snakeCanvas" width="300" height="300"
+          style="display:block;width:300px;height:300px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;cursor:pointer;"></canvas>
+        <!-- CRT scanlines -->
+        <div style="position:absolute;inset:0;pointer-events:none;
+          background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 3px);"></div>
+        <!-- Vignette -->
+        <div style="position:absolute;inset:0;pointer-events:none;
+          background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.55) 100%);"></div>
+      </div>
+      <!-- On-screen d-pad (shown only during game) -->
+      <div id="snakeControls" style="display:none;padding:8px 12px 10px;background:#001000;border-top:1px solid #002400;">
+        <div style="display:grid;grid-template-columns:repeat(3,34px);gap:4px;margin:0 auto;width:fit-content;">
+          <div></div>
+          <button class="sn-btn" onclick="_snakeDirBtn(0,-1)">▲</button>
+          <div></div>
+          <button class="sn-btn" onclick="_snakeDirBtn(-1,0)">◀</button>
+          <button class="sn-btn" id="snakePauseBtn" onclick="_snakePauseToggle()">⏸</button>
+          <button class="sn-btn" onclick="_snakeDirBtn(1,0)">▶</button>
+          <div></div>
+          <button class="sn-btn" onclick="_snakeDirBtn(0,1)">▼</button>
+          <div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- ==================== MODAL LIXEIRA ==================== -->
   <div id="modalLixeira" class="modal-overlay">
     <div class="modal-content" style="max-width:680px;">
@@ -1058,7 +1132,7 @@
   </div>
   <!-- ==================== MODAL SELETOR DE TEMA ==================== -->
 <div id="modalSeletorTema" class="modal-overlay">
-  <div class="modal-content" style="max-width:545px;">
+  <div class="modal-content" style="max-width:660px;">
     <div class="modal-header">
       <h3>
         <i class="fas fa-palette" style="color:var(--cor-destaque);"></i>
@@ -1085,7 +1159,7 @@
       </div>
 
       <!-- Grade de temas -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
 
         <!-- ☕ Tema Café — A ESCOLHA CERTA -->
         <button onclick="aplicarTema('cafe')" id="temaBtnCafe"
@@ -1132,6 +1206,42 @@
           <div style="font-size:0.67rem;color:#7a7a7a;line-height:1.45;padding:0 2px;font-style:italic;">Para quem acha que dark mode é personalidade. Coitado.</div>
           <div id="temaBadgePreto" style="display:none;font-size:0.67rem;background:#e0b84a;color:#111;padding:2px 9px;border-radius:20px;font-weight:700;">✓ Ativo</div>
         </button>
+
+        <!-- 🔒 Tema Premium — BLOQUEADO -->
+        <div class="tema-premium-card"
+          style="border:2px solid #9a7c08;border-radius:var(--raio-lg);padding:15px 10px 14px;
+            background:linear-gradient(160deg,#0e0c00,#1c1700);text-align:center;
+            display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;overflow:visible;">
+          <!-- Correntes nos cantos -->
+          <span style="position:absolute;top:-9px;left:-7px;font-size:15px;line-height:1;filter:drop-shadow(0 0 3px #b8970a);">⛓️</span>
+          <span style="position:absolute;top:-9px;right:-7px;font-size:15px;line-height:1;transform:scaleX(-1);filter:drop-shadow(0 0 3px #b8970a);">⛓️</span>
+          <span style="position:absolute;bottom:-9px;left:-7px;font-size:15px;line-height:1;transform:rotate(90deg);filter:drop-shadow(0 0 3px #b8970a);">⛓️</span>
+          <span style="position:absolute;bottom:-9px;right:-7px;font-size:15px;line-height:1;transform:rotate(-90deg);filter:drop-shadow(0 0 3px #b8970a);">⛓️</span>
+          <!-- Ícone cadeado -->
+          <div class="premium-lock-icon"
+            style="width:48px;height:48px;border-radius:13px;
+              background:linear-gradient(150deg,#201a00,#3a2e00);
+              display:flex;align-items:center;justify-content:center;
+              box-shadow:0 4px 14px rgba(0,0,0,0.8),0 0 18px rgba(184,151,10,0.3);
+              border:1px solid rgba(184,151,10,0.5);">
+            <i class="fas fa-lock" style="font-size:20px;color:#d4a90a;"></i>
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:0.84rem;color:#d4a90a;font-family:'Playfair Display',serif;">Premium</div>
+            <div style="font-size:0.63rem;color:#6a5208;margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🔒 Bloqueado</div>
+          </div>
+          <div style="font-size:0.62rem;color:#4a3c08;line-height:1.5;padding:0 2px;font-style:italic;">Conteúdo exclusivo. Prove que merece.</div>
+          <button onclick="abrirSnakeGame()"
+            style="margin-top:2px;padding:6px 0;width:100%;
+              background:linear-gradient(135deg,#b8970a,#7a6208);
+              border:none;border-radius:20px;color:#fffce0;font-size:0.65rem;font-weight:800;
+              cursor:pointer;letter-spacing:0.05em;text-transform:uppercase;
+              box-shadow:0 3px 10px rgba(184,151,10,0.5);transition:all 0.2s ease;"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 16px rgba(184,151,10,0.7)'"
+            onmouseleave="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(184,151,10,0.5)'">
+            🔓 Desbloquear
+          </button>
+        </div>
 
       </div>
 

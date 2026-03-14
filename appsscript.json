@@ -1,6 +1,7 @@
 {
   "timeZone": "America/Sao_Paulo",
-  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
   "webapp": {
     "executeAs": "USER_DEPLOYING",
     "access": "ANYONE_ANONYMOUS"
@@ -13,7 +14,5 @@
     "https://www.googleapis.com/auth/script.storage",
     "https://www.googleapis.com/auth/script.scriptapp",
     "https://www.googleapis.com/auth/userinfo.email"
-  ],
-  "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8"
+  ]
 }

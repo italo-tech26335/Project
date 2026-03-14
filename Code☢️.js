@@ -1,5 +1,5 @@
 const ID_PLANILHA = '1Bmy4gcbF13mxRYBTHhu3Y82jMLg3QUEDqg_sCyx5X9M';
-const URL_WEBAPP  = 'https://script.google.com/macros/s/AKfycbwJB8g7DHPjcCX4Bl2rclQze_TpOyZ0PB9sEFgHDNLdzCihG8AjHPXWvsOsoqvu1bh7/exec';
+const URL_WEBAPP  = 'https://script.google.com/macros/s/AKfycbyhsJTWEyVs8xgrqyNgtr2bkfEfYm2x2vE14IGk8bUoy2a0H9GFGjdu_D5KxJF0ifRg/exec';
 
 function obterUrlWebAppAtual() {
   try {
@@ -24,10 +24,12 @@ const NOME_ABA_PRIORIDADES = 'PrioridadesResponsavel';
 // NOME_ABA_PERMISSOES removido — sistema substituído por Auth.js
 const NOME_ABA_LIXEIRA = 'LixeiraProjetos';
 const NOME_ABA_DEPARTAMENTOS = 'Departamentos';
+const NOME_ABA_CONFIG_PRIORIDADE = 'ConfigPrioridade';
 
 /** Reuniões */
 
 const NOME_ABA_REUNIOES = 'Reuniões';
+const NOME_ABA_PROMPTS  = 'Prompts';
 
 /** =====================================================================
  *                          COLUNAS DAS ABAS
@@ -62,6 +64,15 @@ const COLUNAS_DEPARTAMENTOS = {
   ID: 0,
   NOME: 1,
   DESCRICAO: 2
+};
+
+const COLUNAS_PROMPTS = {
+  ID:               0,
+  USUARIO_EMAIL:    1,
+  NOME:             2,
+  CONTEUDO:         3,
+  DATA_CRIACAO:     4,
+  DATA_ATUALIZACAO: 5
 };
 
 const COLUNAS_RESPONSAVEIS = {
@@ -247,8 +258,9 @@ function doGet(e) {
       nomeArquivoHtml = 'PaginaProjetoDetalhe🟡';
       titulo = 'Smart Meeting - Projetos';
     } else if (pagina === 'relatorios') {
-      nomeArquivoHtml = 'PaginaRelatorios';
-      titulo = 'Smart Meeting - Relatórios';
+      // Página temporariamente desativada — redireciona para Reuniões
+      return HtmlService.createHtmlOutput('<script>window.location.href=window.location.href.replace(/[?&]pagina=[^&]*/,"")+"?pagina=reunioes";</script>')
+        .setTitle('Smart Meeting').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     } else if (pagina === 'gravador') {
       // Popup de gravação independente — contorna Permissions Policy do iframe GAS
       nomeArquivoHtml = 'GravadorPopup';
@@ -702,8 +714,9 @@ function inicializarCabecalhoAba(aba, nomeAba) {
     [NOME_ABA_SETORES]:       ['ID', 'Nome', 'Descricao', 'ResponsaveisIds'],
     [NOME_ABA_PRIORIDADES]:   ['ID', 'ResponsavelId', 'TipoItem', 'ItemId', 'OrdemPrioridade', 'ProjetoReferencia'],
     [NOME_ABA_USUARIOS]:      ['ID', 'Email', 'SenhaHash', 'Salt', 'Nome', 'Perfil', 'Ativo', 'CriadoEm', 'UltimoLogin', 'TentativasLogin', 'BloqueadoAte', 'DepartamentosIds', 'PaginasPermitidas'],
-    [NOME_ABA_DEPARTAMENTOS]: ['ID', 'Nome', 'Descricao'],
-    [NOME_ABA_LOGS]:          ['Timestamp', 'Evento', 'Usuario', 'IP', 'Detalhes', 'Resultado']
+    [NOME_ABA_DEPARTAMENTOS]:      ['ID', 'Nome', 'Descricao'],
+    [NOME_ABA_LOGS]:               ['Timestamp', 'Evento', 'Usuario', 'IP', 'Detalhes', 'Resultado'],
+    [NOME_ABA_CONFIG_PRIORIDADE]:  ['Chave', 'Valor']
   };
 
   if (cabecalhos[nomeAba]) {
